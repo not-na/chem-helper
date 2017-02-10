@@ -109,10 +109,86 @@ class IUPACNotation(BaseNotation):
     def asIUPACName(self):
         return self
     
+    def asStructuralFormula(self):
+        struct = structural.StructuralNotation()
+        
+        mtype = ""
+        if self.name.endswith("ane"):
+            mtype = "alkane"
+        elif self.name.endswith("ene"):
+            raise errors.UnsupportedFormulaTypeError("Alkenes are not yet supported")
+        elif self.name.endswith("yne"):
+            raise errors.UnsupportedFormulaTypeError("Alkynes are not yet supported")
+        elif self.name.endswith("ol"):
+            raise errors.UnsupportedFormulaTypeError("Alcohols are not yet supported")
+        else:
+            raise errors.UnsupportedFormulaTypeError("Unsupported formula type")
+        
+        if mtype=="alkane":
+            # Pre-process the formula and split into prefix and base alkane
+            formula = self.name[:-3] # Removes the -ane from the end
+            n,prefix = parseAlkanePrefix(formula,True)
+            
+            c_amount = n
+            
+            # Add base carbons to struct
+            carbons = []
+            for i in range(n):
+                carbons.append(struct.addCarbon(name="C%s"%(i+1)))
+            
+            # Bind them together
+            for c in carbons:
+                if carbons.index(c)==0:
+                    continue
+                c.bindToAtom(carbons[carbons.index(c)-1])
+            
+            # To prevent unneccessary processing if it is a simple alkane
+            if prefix!="":
+                s_prefix = iter(prefix.split("-"))
+                
+                # Go through every group of numerical prefix-name
+                for _i in s_prefix:
+                    num_prefix,prefixname = _i,next(s_prefix)
+                    
+                    prefixname = prefixname[:-2] # removes the -yl from the end
+                    alkyl_n,multprefix = parseAlkanePrefix(prefixname,True)
+                    multiplier = parseAlkylMultiplierPrefix(multprefix)
+                    pname = getAlkanePrefix(alkyl_n)+"yl"
+                    
+                    positions = [int(i) for i in num_prefix.split(",")]
+                    
+                    if multiplier!=len(positions):
+                        raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in alkyl group %s"%(multprefix,multiplier,len(positions),num_prefix+"-"+prefixname+"yl"))
+                    
+                    # Add each alkyl group to struct
+                    for position in positions:
+                        parent = carbons[position-1]
+                        # Add every atom of this alkyl group at the position
+                        for i2 in range(alkyl_n):
+                            name = "C %s-%s #%s"%(position,pname,i2+1)
+                            c = struct.addCarbon(name=name)
+                            c.bindToAtom(parent)
+                            parent = c
+                            c_amount+=1
+            
+            # TODO: add sanity check by checking amount of carbon
+            #if c_amount!=...
+            
+        else:
+            raise errors.UnsupportedFormulaTypeError("Unsupported formula type '%s'"%mtype)
+        
+        # Fill everything up with hydrogen
+        struct.fillWithHydrogen()
+        return struct
+    
     def __repr__(self):
         return "<IUPACNotation(name='%s')>"%self.name
     def __str__(self):
         return self.name
+    
+    def __eq__(self,other):
+        return self.__class__==other.__class__ and \
+               self.name==other.name
 
 def getNumericalPrefix(n):
     # Returns the numerical prefix associated with the given number
@@ -159,10 +235,16 @@ def getNumericalPrefix(n):
     else:
         raise NotImplementedError("Numerical Prefixes for numbers higher than 9999 are not implemented")
 
-def parseNumericalPrefix(s_in):
+def parseNumericalPrefix(s_in,return_leftover=False):
     s_in = s_in.lower()
-    if s_in in SPECIAL_PREFIXES.inv:
-        return SPECIAL_PREFIXES.inv[s_in]
+    if not return_leftover:
+        if s_in in SPECIAL_PREFIXES.inv:
+            return SPECIAL_PREFIXES.inv[s_in]
+    elif return_leftover:
+        for n,prefix in SPECIAL_PREFIXES.items():
+            if s_in.endswith(prefix) and prefix!="":
+                s_in = s_in[:-len(prefix)]
+                return n,s_in
     
     if s_in=="":
         raise errors.InvalidPrefixError("Prefix cannot be an empty string")
@@ -201,26 +283,57 @@ def parseNumericalPrefix(s_in):
             n+=val
             s_in = s_in[:-len(prefix)] # cuts off the ones
     
-    if s_in!="":
+    if not return_leftover and s_in!="":
         raise errors.InvalidPrefixError("Prefix could not be fully parsed, %s remained"%s_in)
     
-    return n
+    if not return_leftover:
+        return n
+    elif return_leftover:
+        return n,s_in
 
 def getAlkanePrefix(n):
     if n in SPECIAL_ALKANE_PREFIXES:
         return SPECIAL_ALKANE_PREFIXES[n]
     return getNumericalPrefix(n).rstrip("a")
 
-def parseAlkanePrefix(s_in):
+def parseAlkanePrefix(s_in,return_leftover=False):
     s_in = s_in.lower()
-    if s_in in SPECIAL_ALKANE_PREFIXES.inv:
-        return SPECIAL_ALKANE_PREFIXES.inv[s_in]
-    return parseNumericalPrefix(s_in)
+    if not return_leftover:
+        if s_in in SPECIAL_ALKANE_PREFIXES.inv:
+            return SPECIAL_ALKANE_PREFIXES.inv[s_in]
+    elif return_leftover:
+        for n,prefix in SPECIAL_ALKANE_PREFIXES.items():
+            if s_in.endswith(prefix) and prefix!="":
+                s_in = s_in[:-len(prefix)]
+                return n,s_in
+    return parseNumericalPrefix(s_in+"a",return_leftover)
 
-def getAlkylMultiplierPrefix(n):
+def getAlkylMultiplierPrefix(n,n2=0):
     if n==1:
         return ""
-    return getNumericalPrefix(n)
+    out = getNumericalPrefix(n)
+    if n2 != 0:
+        if parseAlkanePrefix(out+getAlkanePrefix(n2),True)[0]!=n2:
+            # Happens e.g. with n=3 and n2=10
+            # tri- and dec- may not be able to be distinguished, so -kis is added to the end
+            # Exceptions apply for bis/tris
+            # See http://www.acdlabs.com/iupac/nomenclature/93/r93_55.htm#r_0_1_4_2
+            if out=="bi":
+                out="bis"
+            elif out=="tri":
+                out="tris"
+            else:
+                out+="kis"
+    return out
 
-def parseAlkylMultiplierPrefix(s_in):
-    return parseNumericalPrefix(s_in)
+def parseAlkylMultiplierPrefix(s_in,return_leftover=False):
+    if s_in=="":
+        if return_leftover:
+            return 1,""
+        else:
+            return 1
+    elif s_in.endswith("bis") or s_in.endswith("tris"):
+        s_in = s_in[:-1] # remove extra -s
+    elif s_in.endswith("kis"):
+        s_in = s_in[:-3] # remove extra -kis
+    return parseNumericalPrefix(s_in,return_leftover)

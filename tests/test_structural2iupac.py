@@ -28,7 +28,29 @@ import chemhelper
 
 from conftest import basic_alkane
 
-def test_branched_alkane_1():
+test_cases_i2s_branched_alkane = [
+    # Some basic tests
+    ["4-ethylheptane",              7,  9,  20],
+    ["4-ethyloctane",               8, 10,  22],
+    # Would use 2,3-dimethyloctane, but the current algo sometimes chooses C 2-methyl #1 instead of C1
+    # Technically both are valid, but this behavior is too complicated to simply test, needs non-parametrized tests
+    ["3,4-dimethyloctane",          8, 10,  22],
+    
+    # Various other tests
+    # Checks sort order of both positions and alkyl groups
+    ["4,5-diethyl-3,4-dimethyloctane", 8, 14, 30],
+    ["3,4,5,6,7,8,9-heptamethylundecane", 11, 18, 38],
+    ["3,3,4,4,5,5-hexamethylheptane", 7, 13, 28],
+    
+    # Tests for ambiguous replacements, see http://www.acdlabs.com/iupac/nomenclature/93/r93_55.htm#r_0_1_4_2
+    # Checks if trisdecyl is parsed correctly
+    ["12,13,14-trisdecyltriacontane", 30, 60, 122],
+    # Checks if pentakisdecyl is parsed correctly
+    ["12,13,14,15,16-pentakisdecylhectane", 100, 150, 302],
+    
+    ]
+
+def test_s2i_branched_alkane_1():
     # Note that the backbone is not the straight line
     #
     # C-C-C-C-C-C
@@ -69,7 +91,7 @@ def test_branched_alkane_1():
     
     assert iupacname.name == "4-ethylheptane"
 
-def test_branched_alkane_2():
+def test_s2i_branched_alkane_2():
     # Other example with reverse chain
     #
     # C-C-C-C-C-C-C
@@ -111,6 +133,25 @@ def test_branched_alkane_2():
     
     assert iupacname.name == "4-ethyloctane"
 
+@pytest.mark.parametrize(("name", "chainlen","exp_c","exp_h"), test_cases_i2s_branched_alkane)
+def test_i2s_branched_alkane(name,chainlen,exp_c,exp_h):
+    iupacname = chemhelper.notations.iupac.IUPACNotation(name)
+    struct = iupacname.asStructuralFormula()
+    
+    assert struct.countAtoms()=={"C":exp_c,"H":exp_h}
+    
+    backbone = [c.name for c in struct.getCarbonBackbone()]
+    
+    backbone_expected = ["C%s"%(i+1) for i in range(chainlen)]
+    
+    print(backbone)
+    print(backbone_expected)
+    
+    assert len(backbone)==len(backbone_expected)
+    assert backbone == backbone_expected or \
+           backbone == list(reversed(backbone_expected))
+    
+    assert struct.asIUPACName()==iupacname
 
 def main(args):
     # C-C-C-C-C-C-C

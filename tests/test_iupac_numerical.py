@@ -86,6 +86,7 @@ test_cases_alkane = [
     [4,"but"],
     ]
 
+# Simple tests
 @pytest.mark.parametrize(("n", "expected"), test_cases_alkane)
 def test_basic_alkane_n2name(n,expected):
     assert expected==chemhelper.notations.iupac.getAlkanePrefix(n)
@@ -102,6 +103,17 @@ def test_reverse_alkane_name2n(n,name):
 @pytest.mark.parametrize(("n", "name"), test_cases_general)
 def test_reverse_general_name2n(n,name):
     assert n==chemhelper.notations.iupac.parseNumericalPrefix(name)
+
+# Tests with string prepended
+
+@pytest.mark.parametrize(("n", "name"), test_cases_alkane)
+def test_reverse_alkane_name2n_prefixed(n,name):
+    assert n==chemhelper.notations.iupac.parseAlkanePrefix("abcdef"+name,True)[0]
+
+@pytest.mark.parametrize(("n", "name"), test_cases_general)
+def test_reverse_general_name2n_prefixed(n,name):
+    assert n==chemhelper.notations.iupac.parseNumericalPrefix("abcdef"+name,True)[0]
+
 
 def main(args):
     global SUFFIX

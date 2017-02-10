@@ -29,9 +29,13 @@ class BaseNotation(object):
     def asMolecularFormula(self):
         raise NotImplementedError("%s cannot be converted to a Molecular Formula"%self.__class__.__name__)
     
+    def asCondensedFormula(self):
+        raise NotImplementedError("%s cannot be converted to IUPAC Nomenclature"%self.__class__.__name__)
+    
     def asIUPACName(self):
         raise NotImplementedError("%s cannot be converted to IUPAC Nomenclature"%self.__class__.__name__)
 
 from . import structural
 #from . import molecular
 from . import iupac
+from . import condensed

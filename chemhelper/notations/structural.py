@@ -32,6 +32,8 @@ from . import BaseNotation
 from . import iupac
 from .. import errors
 
+iupac.structural = sys.modules["chemhelper.notations.structural"] # to avoid circular dependency
+
 class StructuralNotation(BaseNotation):
     def __init__(self):
         self.atoms = set()
@@ -125,6 +127,8 @@ class StructuralNotation(BaseNotation):
                 n_groups.append([max_n-n,grouptype,extradata])
             groups = n_groups
         
+        #print("Flip: %s flip: %s unflip: %s"%(flip_sum<unflip_sum,flip_sum,unflip_sum))
+        
         # Dict of n:list of groups
         alkyl_groups = {}
         
@@ -156,7 +160,7 @@ class StructuralNotation(BaseNotation):
         prefixes = []
         for prefixname in prefixnames_sorted:
             d = alkyl_prefixname[prefixname]
-            name_out = iupac.getAlkylMultiplierPrefix(len(d["groups"]))+prefixname
+            name_out = iupac.getAlkylMultiplierPrefix(len(d["groups"]),d["n"])+prefixname
             num_prefix = ",".join([str(i) for i in sorted(d["positions"])])
             name_out = num_prefix+"-"+name_out
             prefixes.append(name_out)

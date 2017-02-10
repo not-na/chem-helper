@@ -25,6 +25,7 @@
 class ChemError(Exception):pass
 
 class IncompleteFormulaError(Exception):pass
+class InvalidMultiplier(Exception):pass
 
 class BindingError(Exception):pass
 class AlreadyBoundError(BindingError):pass
@@ -37,3 +38,6 @@ class InvalidGroupError(Exception):pass
 
 class UnsupportedElementError(NotImplementedError):pass
 class UnsupportedGroupError(NotImplementedError):pass
+class UnsupportedFormulaTypeError(NotImplementedError):pass
+
+class InternalError(Exception):pass
