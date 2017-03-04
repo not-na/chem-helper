@@ -23,3 +23,5 @@
 #  
 
 from . import notations
+from . import errors
+from . import version

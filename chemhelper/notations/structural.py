@@ -31,6 +31,8 @@ from functools import reduce
 from . import BaseNotation
 from . import iupac
 from .. import errors
+from .. import elements
+from ..elements import Atom, Carbon, Hydrogen, Oxygen
 
 iupac.structural = sys.modules["chemhelper.notations.structural"] # to avoid circular dependency
 
@@ -178,6 +180,95 @@ class StructuralNotation(BaseNotation):
         out = iupac.IUPACNotation(out)
         return out
     
+    def dumpAsSMILES(self):
+        if self.checkValid()!=[]:
+            raise errors.IncompleteFormulaError("At least %s atoms are invalid, cannot convert if not valid"%len(self.checkValid()))
+        
+        # Check for methane, special
+        if self.countAtoms()=={"C":1,"H":4}:
+            return "C"
+        
+        # find longest carbon chain
+        backbone = self.getCarbonBackbone()
+        
+        # Dict of position: [(position,type,extradata),*]
+        groups = {}
+        
+        # Parse branches
+        n = 0
+        for c in backbone:
+            # Go through each atom of the backbone and count the number
+            n+=1
+            for neighbour in c.bindings:
+                if neighbour in backbone:
+                    # Neighbour is part of the backbone
+                    continue
+                elif neighbour.symbol=="H":
+                    # Hydrogen is (currently) ignored, as it is not relevant
+                    continue
+                elif neighbour.symbol=="C":
+                    # Found a branch
+                    # Follow it and measure its length
+                    grouptype,extradata = self.analyzeBranch(backbone,c,neighbour)
+                    group = [n,grouptype,extradata]
+                    if n not in groups:
+                        groups[n]=[]
+                    groups[n].append(group)
+                else:
+                    raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
+        
+        # Compile output
+        out = ""
+        n = 0
+        for c in backbone:
+            # Add the base carbon
+            n+=1
+            out += "C"
+            
+            # Add all groups
+            for _,gtype,gdata in groups.get(n,[]):
+                if gtype == "alkyl":
+                    # Add parentheses containing the group
+                    out += "("+("C"*gdata["n"])+")"
+                else:
+                    raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
+        
+        return out
+    
+    def dumpAsSMILES_2(self):
+        start = None
+        for atom in self.atoms:
+            if atom.symbol=="C":
+                start = atom
+                break
+        if start is None:
+            raise errors.UnsupportedFormulaTypeError("Need a Carbon to convert to SMILES")
+        
+        visited = set()
+        
+        out = self._smileshelper(visited,start)
+        return out
+    
+    def _smileshelper(self,visited,atom):
+        visited.add(atom)
+        
+        out = "C"
+        
+        f = True
+        for neighbour in atom.bindings:
+            if neighbour.symbol!="C":
+                continue
+            elif atom.bindings[neighbour]!=1:
+                raise errors.UnsupportedBindingError("%s-Binds are currently not supported"%atom.bindings[neighbour])
+            elif neighbour not in visited:
+                if f:
+                    out+=self._smileshelper(visited,neighbour)
+                    f = False
+                else:
+                    out+="("+self._smileshelper(visited,neighbour)+")"
+        return out
+            
+    
     def analyzeBranch(self,backbone,c,start):
         d = {}
         d["atoms"]=[]
@@ -208,6 +299,7 @@ class StructuralNotation(BaseNotation):
                     n+=1
                     d["atoms"].append(atom)
                     for neighbour in atom.bindings:
+                        # TODO: detect if there is a branch on the branch
                         if neighbour == c:
                             continue # Stops us from accidentally going back to the backbone
                         elif neighbour in visited:
@@ -300,7 +392,9 @@ class StructuralNotation(BaseNotation):
                     dag[parent].append(node)
                 
                 for neighbour in node.bindings:
-                    if neighbour.symbol!="C":
+                    if node.bindings[neighbour]!=1:
+                        raise errors.UnsupportedBindingError("%s-Binds are currently not supported"%node.bindings[neighbour])
+                    elif neighbour.symbol!="C":
                         continue
                     elif neighbour in visited:
                         continue
@@ -382,77 +476,3 @@ class StructuralNotation(BaseNotation):
         return out
     
     ## End Carbon-Backbone extraction algorithm
-
-class Atom(object):
-    atomtype = "Atom"
-    symbol = "-"
-    max_bindings = 0
-    def __init__(self,structure,pos=None,name=""):
-        self.structure = structure
-        
-        self.pos = pos
-        
-        self.name = name
-        
-        self.bindings = {}
-        
-        self.num_bindings = 0
-    
-    def bindToAtom(self,other,bindings=1):
-        if self is other:
-            # Prevents bugs if atom is bound to itself
-            raise errors.BindingError("Cannot bind an atom to itself")
-        elif other in self.bindings:
-            # Already bound, prevents weird bindings
-            # TODO: merge bindings instead
-            raise errors.AlreadyBoundError("Atoms are already bound to each other")
-        elif self.num_bindings+bindings>self.max_bindings:
-            # Not enough bindings are available to bind to this (self) atom
-            raise errors.NotEnoughBindingsError("Not enough bindings available to bind from this atom")
-        elif other.num_bindings+bindings>other.max_bindings:
-            # Not enough bindings are available to bind to this (other) atom
-            raise errors.NotEnoughBindingsError("Not enough bindings available to bind to this atom")
-        
-        self.bindings[other]=bindings
-        other.bindings[self]=bindings
-        self.num_bindings+=bindings
-        other.num_bindings+=bindings
-    
-    def fillWithHydrogen(self):
-        # TODO: Add some smart positioning for hydrogen "childs"
-        while self.num_bindings<self.max_bindings:
-            h = Hydrogen(self.structure)
-            self.structure.addAtom(h)
-            self.bindToAtom(h)
-    
-    def __repr__(self):
-        if self.name != "":
-            return "<Atom(symbol='%s',bindings=%s,name='%s')>"%(self.symbol,self.num_bindings,self.name)
-        else:
-            return "<Atom(symbol='%s',bindings=%s) at %s>"%(self.symbol,self.num_bindings,hex(id(self)))
-    
-    def __lt__(self,other):
-        if isinstance(other,Atom):
-            return self.name<other.name # Allows for sorting
-        raise TypeError("Cannot compare %s to %s"%(self.__class__.__name__,other.__class__.__name__))
-    
-    def __gt__(self,other):
-        if isinstance(other,Atom):
-            return self.name>other.name # Allows for sorting
-        raise TypeError("Cannot compare %s to %s"%(self.__class__.__name__,other.__class__.__name__))
-
-class Carbon(Atom):
-    atomtype = "Carbon"
-    symbol = "C"
-    max_bindings = 4
-
-class Hydrogen(Atom):
-    atomtype = "Hydrogen"
-    symbol = "H"
-    max_bindings = 1
-
-class Oxygen(Atom):
-    atomtype = "Oxygen"
-    symbol = "O"
-    max_bindings = 2
-    # TODO: implement special render with "shields" for oxygen only

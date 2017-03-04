@@ -101,11 +101,6 @@ class IUPACNotation(BaseNotation):
     def __init__(self,name=""):
         self.name = name
     
-    def checkValid(self):
-        pass
-    def countAtoms(self):
-        pass
-    
     def asIUPACName(self):
         return self
     
@@ -180,6 +175,12 @@ class IUPACNotation(BaseNotation):
         # Fill everything up with hydrogen
         struct.fillWithHydrogen()
         return struct
+    
+    def dumpAsSMILES(self):
+        return self.asStructuralFormula().dumpAsSMILES()
+    
+    def dumpAsInChI(self):
+        return self.asStructuralFormula().dumpAsInChI()
     
     def __repr__(self):
         return "<IUPACNotation(name='%s')>"%self.name

@@ -33,7 +33,7 @@ RE_SIMPLE_FORMULA = re.compile(r"""
                                    -?                                           # Optional dash
                                    CH3                                          # Last CH3 group marks the end
                                    \Z                                           # Make sure it ends there
-                                   """,re.VERBOSE|re.DEBUG)
+                                   """,re.VERBOSE)
 # Concatenated: CH3-?(\()+CH2(?(1)\)|)([1-9])+(?(2)[0-9]*|)-?CH3\Z
 
 from . import BaseNotation
@@ -88,9 +88,12 @@ class CondensedMolecularNotation(BaseNotation):
                 if carbons.index(c)==0:
                     continue
                 c.bindToAtom(carbons[carbons.index(c)-1])
+        elif self.formula.startswith("CH3") and self.formula.endswith("CH3"):
+            # Most other formula types
+            raise errors.UnsupportedFormulaTypeError("Cannot convert between non-simple condensed formulas and structural formulas")
+        elif self.formula.endswith("OH"):
+            raise errors.UnsupportedFormulaTypeError("Alcohols represented as condensed formulas cannot be converted yet")
         else:
-            print(self.formula)
-            print(RE_SIMPLE_FORMULA.match(self.formula))
             raise errors.UnsupportedFormulaTypeError("The given formula cannot be converted yet")
         
         r = struct.countAtoms()
@@ -103,6 +106,11 @@ class CondensedMolecularNotation(BaseNotation):
     def asIUPACName(self):
         return self.asStructuralFormula().asIUPACName()
     
+    def dumpAsSMILES(self):
+        return self.asStructuralFormula().dumpAsSMILES()
+    
+    def dumpAsInChI(self):
+        return self.asStructuralFormula().dumpAsInChI()
     
     def __repr__(self):
         return "<CondensedMolecularNotation(formula='%s')>"%self.formula

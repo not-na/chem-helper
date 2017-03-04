@@ -23,6 +23,11 @@
 #  
 
 class BaseNotation(object):
+    def checkValid(self):
+        raise NotImplementedError("%s cannot be checked for validity"%self.__class__.__name__)
+    def countAtoms(self):
+        raise NotImplementedError("Atoms in %s cannot be counted"%self.__class__.__name__)
+    
     def asStructuralFormula(self):
         raise NotImplementedError("%s cannot be converted to a Structural Formula"%self.__class__.__name__)
     
@@ -34,6 +39,24 @@ class BaseNotation(object):
     
     def asIUPACName(self):
         raise NotImplementedError("%s cannot be converted to IUPAC Nomenclature"%self.__class__.__name__)
+    
+    def saveAsSMILES(self,fname):
+        data = self.dumpAsSMILES()
+        with open(fname,"w") as f:
+            f.write(data)
+        return data
+    
+    def saveAsInChI(self,fname):
+        data = self.dumpAsInChI()
+        with open(fname,"w") as f:
+            f.write(data)
+        return data
+    
+    def dumpAsSMILES(self):
+        raise NotImplementedError("%s cannot be exported as a SMILES File"%self.__class__.__name__)
+    
+    def dumpAsInChI(self):
+        raise NotImplementedError("%s cannot be exported as a InChI File"%self.__class__.__name__)
 
 from . import structural
 #from . import molecular

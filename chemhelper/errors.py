@@ -39,5 +39,6 @@ class InvalidGroupError(Exception):pass
 class UnsupportedElementError(NotImplementedError):pass
 class UnsupportedGroupError(NotImplementedError):pass
 class UnsupportedFormulaTypeError(NotImplementedError):pass
+class UnsupportedBindingError(NotImplementedError):pass
 
 class InternalError(Exception):pass
