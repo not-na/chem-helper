@@ -1,2 +1,6 @@
 language: python
 script: tox
+addons:
+  apt:
+    packages:
+    - python3.5
