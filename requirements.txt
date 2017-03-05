@@ -1,6 +1,5 @@
 appdirs==1.4.0
 bidict==0.13.0
-chemhelper==0.1.0a1
 packaging==16.8
 pluggy==0.4.0
 py==1.4.32
