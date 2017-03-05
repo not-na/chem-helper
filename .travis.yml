@@ -1,8 +1,4 @@
 language: python
+python:
+  - "3.5"
 script: tox
-addons:
-  apt:
-    sources:
-    - precise
-    packages:
-    - python3.5
