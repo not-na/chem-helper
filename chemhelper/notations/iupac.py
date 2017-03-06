@@ -101,6 +101,7 @@ class IUPACNotation(BaseNotation):
     def __init__(self,name=""):
         self.name = name
     
+    # Conversion Methods
     def asIUPACName(self):
         return self
     
@@ -176,12 +177,23 @@ class IUPACNotation(BaseNotation):
         struct.fillWithHydrogen()
         return struct
     
+    # Save to String Methods
     def dumpAsSMILES(self):
         return self.asStructuralFormula().dumpAsSMILES()
     
     def dumpAsInChI(self):
         return self.asStructuralFormula().dumpAsInChI()
     
+    # Load from String Methods
+    @classmethod
+    def loadsFromSMILES(cls,data):
+        return structural.StructuralNotation.loadsFromSMILES(data).asIUPACName()
+    
+    @classmethod
+    def loadsFromInChI(cls,data):
+        return structural.StructuralNotation.loadsFromInChI(data).asIUPACName()
+    
+    # Magic Methods
     def __repr__(self):
         return "<IUPACNotation(name='%s')>"%self.name
     def __str__(self):

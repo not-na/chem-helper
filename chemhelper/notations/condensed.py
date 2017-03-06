@@ -45,6 +45,7 @@ class CondensedMolecularNotation(BaseNotation):
     def __init__(self,formula):
         self.formula = formula
     
+    # Conversion Methods
     def asCondensedFormula(self):
         return self
     
@@ -106,12 +107,23 @@ class CondensedMolecularNotation(BaseNotation):
     def asIUPACName(self):
         return self.asStructuralFormula().asIUPACName()
     
+    # Save to String Methods
     def dumpAsSMILES(self):
         return self.asStructuralFormula().dumpAsSMILES()
     
     def dumpAsInChI(self):
         return self.asStructuralFormula().dumpAsInChI()
     
+    # Load from String Methods
+    @classmethod
+    def loadsFromSMILES(cls,data):
+        return structural.StructuralNotation.loadsFromSMILES(data).asCondensedFormula()
+    
+    @classmethod
+    def loadsFromInChI(cls,data):
+        return structural.StructuralNotation.loadsFromInChI(data).asCondensedFormula()
+    
+    # Magic Methods
     def __repr__(self):
         return "<CondensedMolecularNotation(formula='%s')>"%self.formula
     def __str__(self):

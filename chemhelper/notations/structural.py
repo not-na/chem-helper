@@ -40,6 +40,7 @@ class StructuralNotation(BaseNotation):
     def __init__(self):
         self.atoms = set()
     
+    # Structure Modification Methods
     def addAtom(self,atom):
         self.atoms.add(atom)
     
@@ -80,6 +81,7 @@ class StructuralNotation(BaseNotation):
                 continue
         return out
     
+    # Conversion Methods
     def asStructuralFormula(self):
         return self
     
@@ -180,6 +182,7 @@ class StructuralNotation(BaseNotation):
         out = iupac.IUPACNotation(out)
         return out
     
+    # Save to String Methods
     def dumpAsSMILES(self):
         if self.checkValid()!=[]:
             raise errors.IncompleteFormulaError("At least %s atoms are invalid, cannot convert if not valid"%len(self.checkValid()))
@@ -235,40 +238,10 @@ class StructuralNotation(BaseNotation):
         
         return out
     
-    def dumpAsSMILES_2(self):
-        start = None
-        for atom in self.atoms:
-            if atom.symbol=="C":
-                start = atom
-                break
-        if start is None:
-            raise errors.UnsupportedFormulaTypeError("Need a Carbon to convert to SMILES")
-        
-        visited = set()
-        
-        out = self._smileshelper(visited,start)
-        return out
+    # Load from String Methods
+    # TODO
     
-    def _smileshelper(self,visited,atom):
-        visited.add(atom)
-        
-        out = "C"
-        
-        f = True
-        for neighbour in atom.bindings:
-            if neighbour.symbol!="C":
-                continue
-            elif atom.bindings[neighbour]!=1:
-                raise errors.UnsupportedBindingError("%s-Binds are currently not supported"%atom.bindings[neighbour])
-            elif neighbour not in visited:
-                if f:
-                    out+=self._smileshelper(visited,neighbour)
-                    f = False
-                else:
-                    out+="("+self._smileshelper(visited,neighbour)+")"
-        return out
-            
-    
+    # Helper Methods and backbone extraction Algorithm for asIUPACName and dumpAsSMILES
     def analyzeBranch(self,backbone,c,start):
         d = {}
         d["atoms"]=[]
