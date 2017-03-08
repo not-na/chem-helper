@@ -150,3 +150,26 @@ ELEMENTS = {
     "I":Iodine,
     "B":Boron,
     }
+
+# List of all IUPAC-Accepted Elements as of the 7th of March 2017 (07.03.2017)
+# All elements are in order of their Number, e.g. from top-left to bottom-right
+
+## Changelog (dates in DD.MM.YYYY format)
+# 07.03.2017 by notna: first type-down of all elements, source ptable.com and handout from school
+## End Changelog, for further information view the git history on https://github.com/not-na/chem-helper
+ALL_ELEMENTS = [
+    # First Period
+    "H","He",
+    # Second Period
+    "Li","Be","B","C","N","O","F","Ne",
+    # Third Period
+    "Na","Mg","Al","Si","P","S","Cl","Ar",
+    # Fourth Period
+    "K","Ca","Sc","Ti","V","Cr","Mn","Fe","Co","Ni","Cu","Zn","Ga","Ge","As","Se","Br","Kr",
+    # Fifth Period
+    "Rb","Sr","Y","Zr","Nb","Mo","Tc","Ru","Rh","Pd","Ag","Cd","In","Sn","Sb","Te","I","Xe",
+    # Sixth Period (including Lanthanoids)
+    "Cs","Ba","La","Ce","Pr","Nd","Pm","Sm","Eu","Gd","Tb","Dy","Ho","Er","Tm","Yb","Lu","Hf","Ta","W","Re","Os","Ir","Pt","Au","Hg","Tl","Pb","Bi","Po","At","Rn",
+    # Seventh Period (including Actinoids)
+    "Fr","Ra","Ac","Th","Pa","U","Np","Pu","Am","Cm","Bk","Cf","Es","Fm","Md","No","Lr","Rf","Db","Sg","Bh","Hs","Mt","Ds","Rg","Cn","Nh","Fl","Mc","Lv","Ts","Og"
+    ]

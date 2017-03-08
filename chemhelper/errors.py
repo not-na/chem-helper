@@ -42,3 +42,7 @@ class UnsupportedFormulaTypeError(NotImplementedError):pass
 class UnsupportedBindingError(NotImplementedError):pass
 
 class InternalError(Exception):pass
+
+class SMILESError(Exception):pass
+class SMILESSyntaxError(SMILESError):pass
+class UnsupportedSMILESFeatureError(NotImplementedError):pass

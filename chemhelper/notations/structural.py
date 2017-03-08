@@ -239,7 +239,133 @@ class StructuralNotation(BaseNotation):
         return out
     
     # Load from String Methods
-    # TODO
+    @classmethod
+    def loadsFromSMILES(cls,data):
+        out = cls()
+        
+        d_list = list(data)
+        c_index = 0
+        prev = None
+        stack = []
+        while d_list!=[]:
+            # Parses the token
+            # If it is a parentheses, the branch will be started/finished
+            # If not, the atom will be parsed and created
+            if d_list[0] in "\n ":
+                # Ignores spaces and newlines
+                d_list.pop(0)
+                c_index+=1
+                continue
+            elif d_list[0] in ">":
+                raise errors.UnsupportedSMILESFeatureError("SMILES Reactions are not supported")
+            elif d_list[0] in "-=#:@123456789%/\\.":
+                # Features in order:
+                # Bindings,Chirality,Cyclic Structures,Directional Bonds,Disconnected Structures
+                raise errors.UnsupportedSMILESFeatureError("SMILES Feature at %s is not yet supported"%c_index)
+            elif d_list[0]=="(":
+                # Start of branch
+                if c_index==0:
+                    raise errors.SMILESSyntaxError("Cannot start branch at the beginning of the molecule")
+                
+                # Pushes the current prev as a backup to the stack
+                stack.append(prev)
+                
+                # Pop the parenthesis and skip to the next cycle
+                d_list.pop(0)
+                c_index+=1
+                continue
+            elif d_list[0]==")":
+                # End of branch
+                if stack==[]:
+                    raise errors.SMILESSyntaxError("Found closing parenthesis outside of a branch")
+                
+                # Retrieves the prev of the parent chain from the stack
+                prev = stack.pop()
+                
+                # Pop the parenthesis and skip to the next cycle
+                d_list.pop(0)
+                c_index+=1
+                continue
+            elif d_list[0]=="[":
+                # Bracketized Atom
+                
+                c_start = c_index
+                
+                # Collects the entire atom definition within brackets
+                # Note that this might fail if there is a bracket mismatch
+                a = ""
+                d_list.pop(0) # Pops off the starting bracket
+                while True:
+                    if len(d_list)==0:
+                        raise errors.SMILESSyntaxError("Missing closing bracket for bracket starting at char %s"%c_start)
+                    elif d_list[0]=="]":
+                        d_list.pop(0)
+                        c_index+=1
+                        break
+                    elif d_list[0]=="[":
+                        raise errors.SMILESSyntaxError("Doubly-opened bracket at %s for start bracket %s"%(c_index+1,c_start))
+                    
+                    c = d_list.pop(0)
+                    c_index+=1
+                    a+=c
+                
+                # Gets the element
+                element = None
+                for e in elements.ALL_ELEMENTS:
+                    if a.startswith(e):
+                        element = e
+                if element is None:
+                    raise errors.SMILESSyntaxError("Unknown element with Symbol '%s' at char %s"%(a[:2],c_start+2))
+                
+                # Creates the atom
+                if element in elements.ELEMENTS.keys():
+                    # Known element
+                    atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_start))
+                else:
+                    raise errors.UnsupportedElementError("Unsupported element %s")
+                    # TODO: add support for arbitrary elements
+                out.addAtom(atom)
+                
+                # Adds specified hydrogen
+                if a.startswith("H"):
+                    # Assumes that at maximum 9 hydrogen will be added
+                    if len(a)<2:
+                        raise errors.SMILESSyntaxError("H for attached Hydrogen found, but amount not specified")
+                    elif a[1] not in "0123456789":
+                        raise errors.SMILESSyntaxError("H for attached Hydrogen found, but following character was not a number")
+                    amount = int(a[1])
+                    for i in range(amount):
+                        h = Hydrogen(out,name="H #%s of char %s"%(i+1,c_start))
+                        out.addAtom(a)
+                        atom.bindToAtom(h)
+                
+                # TODO: add support for isotopes and charge
+            elif d_list[0] in "BCNOPSFI":
+                # Single-letter elements
+                element = d_list.pop(0)
+                c_index+=1
+                
+                atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_index))
+                out.addAtom(atom)
+            elif d_list[0]+d_list[1] in ["Cl","Br"]:
+                # Double-letter elements
+                element = d_list.pop(0)+d_list.pop(0)
+                c_index+=2
+                
+                atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_index))
+                out.addAtom(atom)
+            elif d_list[0]=="]":
+                # Extraneous Closing Bracket
+                raise errors.SMILESSyntaxError("Extraneous closing bracket at char %s"%(c_index+1))
+            else:
+                raise errors.SMILESSyntaxError("Invalid token at char %s"%(c_index+1))
+            
+            # Connect to the previous atom
+            if prev is not None:
+                prev.bindToAtom(atom)
+            prev = atom
+        out.fillWithHydrogen()
+        return out
     
     # Helper Methods and backbone extraction Algorithm for asIUPACName and dumpAsSMILES
     def analyzeBranch(self,backbone,c,start):
