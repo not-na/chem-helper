@@ -220,6 +220,41 @@ class StructuralNotation(BaseNotation):
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         
+        max_n = len(backbone)+1 # needed for an off-by-one bug
+        
+        unflip_sum = sum([sum([g[0] for g in glist]) for glist in groups.values()])
+        flip_sum = sum([sum([max_n-g[0] for g in glist]) for glist in groups.values()])
+        
+        # Uncomment if problems with flipping code arise
+        #print("Flip Data:")
+        #for kv in groups.items():
+        #    print("%s: %s"%kv)
+        #print("flip: %s unflip: %s"%(flip_sum,unflip_sum))
+        
+        if unflip_sum<flip_sum:
+            pass # Do nothing, unflipped yields the lowest numbers
+        elif flip_sum<unflip_sum:
+            n_groups = {}
+            for i in groups.values():
+                for n,grouptype,extradata in i:
+                    new_n = max_n-n
+                    if new_n not in n_groups:
+                        n_groups[new_n] = []
+                    n_groups[new_n].append([new_n,grouptype,extradata])
+            groups = n_groups
+        
+        #print("Final Groups:")
+        #for n,g in groups.items():
+        #    print("n=%s:"%n)
+        #    for group in g:
+        #        print("\tGroup with len=%s:"%group[2]["n"])
+        #        print("\t\t%s"%group)
+        #        print("\t\tAtoms:")
+        #        for atom in group[2]["atoms"]:
+        #            print("\t\t\tAtom %s connected to %s"%(atom.name,[a.name for a in atom.bindings if atom.symbol=="C"]))
+        #        print("\t\tEnd Group")
+        #print("End Groups")
+        
         # Compile output
         out = ""
         n = 0
@@ -228,13 +263,24 @@ class StructuralNotation(BaseNotation):
             n+=1
             out += "C"
             
-            # Add all groups
-            for _,gtype,gdata in groups.get(n,[]):
-                if gtype == "alkyl":
-                    # Add parentheses containing the group
-                    out += "("+("C"*gdata["n"])+")"
-                else:
-                    raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
+            if n in groups:
+                # If there are side chains
+                
+                #print("Side chains at %s:"%n)
+                
+                groups_sorted = sorted(groups[n],key=(lambda group: group[2]["n"]))
+                
+                #for g in groups_sorted:
+                #    print("\t%s"%g)
+                #print("End side chains %s"%n)
+                
+                # Add all groups
+                for _,gtype,gdata in groups_sorted:
+                    if gtype == "alkyl":
+                        # Add parentheses containing the group
+                        out += "("+("C"*gdata["n"])+")"
+                    else:
+                        raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
         
         return out
     
@@ -330,27 +376,28 @@ class StructuralNotation(BaseNotation):
                 if a.startswith("H"):
                     # Assumes that at maximum 9 hydrogen will be added
                     if len(a)<2:
-                        raise errors.SMILESSyntaxError("H for attached Hydrogen found, but amount not specified")
+                        amount = 1 # If there is no amount specified, the default is one
                     elif a[1] not in "0123456789":
                         raise errors.SMILESSyntaxError("H for attached Hydrogen found, but following character was not a number")
-                    amount = int(a[1])
+                    else:
+                        amount = int(a[1])
                     for i in range(amount):
                         h = Hydrogen(out,name="H #%s of char %s"%(i+1,c_start))
                         out.addAtom(a)
                         atom.bindToAtom(h)
                 
                 # TODO: add support for isotopes and charge
+            elif len(d_list)>=2 and d_list[0]+d_list[1] in ["Cl","Br"]:
+                # Double-letter elements
+                element = d_list.pop(0)+d_list.pop(0)
+                c_index+=2
+                
+                atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_index))
+                out.addAtom(atom)
             elif d_list[0] in "BCNOPSFI":
                 # Single-letter elements
                 element = d_list.pop(0)
                 c_index+=1
-                
-                atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_index))
-                out.addAtom(atom)
-            elif d_list[0]+d_list[1] in ["Cl","Br"]:
-                # Double-letter elements
-                element = d_list.pop(0)+d_list.pop(0)
-                c_index+=2
                 
                 atom = elements.ELEMENTS[element](out,name="%s from char %s"%(element,c_index))
                 out.addAtom(atom)
@@ -364,6 +411,9 @@ class StructuralNotation(BaseNotation):
             if prev is not None:
                 prev.bindToAtom(atom)
             prev = atom
+        if stack != []:
+            raise errors.SMILESSyntaxError("%s parentheses have not been closed at the end, starting with %s"%(len(stack),stack[-1]))
+        
         out.fillWithHydrogen()
         return out
     
