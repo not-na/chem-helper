@@ -92,9 +92,17 @@ class StructuralNotation(BaseNotation):
         # Check for methane, special
         if self.countAtoms()=={"C":1,"H":4}:
             return iupac.IUPACNotation("Methane")
+        elif self.countAtoms().get("C",0)==0:
+            # Prevents bugs further down
+            return iupac.IUPACNotation("")
+        
+        # Check that all atoms are connected to eachother, to prevent bugs with multiple molecules in one formula
+        self.checkConnected(True)
         
         # find longest carbon chain
         backbone = self.getCarbonBackbone()
+        if len(backbone)>9999:
+            raise errors.FormulaTooLargeError("Backbone is %s atoms long, only up to 9999 supported"%len(backbone))
         
         # List of (position,type,extradata)
         groups = []
@@ -181,6 +189,32 @@ class StructuralNotation(BaseNotation):
         
         out = iupac.IUPACNotation(out)
         return out
+    
+    def checkConnected(self,raise_error=False):
+        if len(self.atoms)==0:
+            return True # Prevents crashes when trying to find a starting node
+        visited = set()
+        
+        # Simply walks the graph of all reachable atoms
+        # Stores all reachable atoms
+        stack = set([list(self.atoms)[0]])
+        while len(stack)>0:
+            atom = stack.pop()
+            visited.add(atom)
+            
+            for neighbour in atom.bindings:
+                if neighbour not in visited:
+                    stack.add(neighbour)
+        
+        # The number of reachable atoms should equal the number of all atoms
+        # If not, there are some unreachable atoms
+        if len(visited)!=len(self.atoms):
+            if raise_error:
+                raise errors.MultipleMoleculesError("Multiple molecules in one formula detected")
+            else:
+                return False
+        else:
+            return True
     
     # Save to String Methods
     def dumpAsSMILES(self):
@@ -447,6 +481,7 @@ class StructuralNotation(BaseNotation):
                 elif atom.symbol=="C":
                     n+=1
                     d["atoms"].append(atom)
+                    double_branch = False
                     for neighbour in atom.bindings:
                         # TODO: detect if there is a branch on the branch
                         if neighbour == c:
@@ -459,6 +494,10 @@ class StructuralNotation(BaseNotation):
                         elif neighbour.symbol=="H":
                             continue
                         elif neighbour.symbol=="C":
+                            if double_branch:
+                                # Triggers if more than one valid carbon to go to is detected on a single side-chain carbon
+                                raise errors.UnsupportedFeatureError("Double branch detected, not supported")
+                            double_branch = True
                             stack.append((neighbour))
                         # else is missing, other elements handled when they are parsed in the queue
                 else:

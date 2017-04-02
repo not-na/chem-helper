@@ -115,8 +115,11 @@ class IUPACNotation(BaseNotation):
             raise errors.UnsupportedFormulaTypeError("Alkenes are not yet supported")
         elif self.name.endswith("yne"):
             raise errors.UnsupportedFormulaTypeError("Alkynes are not yet supported")
-        elif self.name.endswith("ol"):
-            raise errors.UnsupportedFormulaTypeError("Alcohols are not yet supported")
+        elif self.name.endswith("anol"):
+            raise errors.UnsupportedFormulaTypeError("Alcohols/Alkanols are not yet supported")
+        elif self.name=="":
+            # Prevents bugs further down
+            return struct
         else:
             raise errors.UnsupportedFormulaTypeError("Unsupported formula type")
         
@@ -158,6 +161,8 @@ class IUPACNotation(BaseNotation):
                     
                     # Add each alkyl group to struct
                     for position in positions:
+                        if position>len(carbons):
+                            raise errors.BaseAtomOutOfRangeError("Tried to place sidechain at carbon #%s, but there are only %s"%(position,len(carbons)))
                         parent = carbons[position-1]
                         # Add every atom of this alkyl group at the position
                         for i2 in range(alkyl_n):

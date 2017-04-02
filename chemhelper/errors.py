@@ -26,16 +26,23 @@ class ChemError(Exception):pass
 
 class IncompleteFormulaError(Exception):pass
 class InvalidMultiplier(Exception):pass
+class MultipleMoleculesError(Exception):pass
+class BaseAtomOutOfRangeError(Exception):pass
+class FormulaTooLargeError(Exception):pass
+
+class NotAnAtomError(Exception):pass
 
 class BindingError(Exception):pass
 class AlreadyBoundError(BindingError):pass
 class NotEnoughBindingsError(BindingError):pass
+class NotBoundError(BindingError):pass
 
 class InvalidPrefixError(Exception):pass
 
 class CyclicMoleculeError(Exception):pass
 class InvalidGroupError(Exception):pass
 
+class UnsupportedFeatureError(NotImplementedError):pass
 class UnsupportedElementError(NotImplementedError):pass
 class UnsupportedGroupError(NotImplementedError):pass
 class UnsupportedFormulaTypeError(NotImplementedError):pass

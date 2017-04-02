@@ -39,7 +39,10 @@ class Atom(object):
         self.num_bindings = 0
     
     def bindToAtom(self,other,bindings=1):
-        if self is other:
+        if not isinstance(other,Atom):
+            # Prevents bugs further down
+            raise errors.NotAnAtomError("Cannot bind to non-atom")
+        elif self is other:
             # Prevents bugs if atom is bound to itself
             raise errors.BindingError("Cannot bind an atom to itself")
         elif other in self.bindings:
@@ -57,6 +60,29 @@ class Atom(object):
         other.bindings[self]=bindings
         self.num_bindings+=bindings
         other.num_bindings+=bindings
+    def unbindFromAtom(self,other):
+        if not isinstance(other,Atom):
+            raise errors.NotAnAtomError("Cannot unbind from non-atom")
+        elif self is other:
+            raise errors.BindingError("Cannot unbind atom from itself")
+        elif other not in self.bindings:
+            # Not bound, provide meaningful error message
+            raise errors.NotBoundError("Atoms are not bound to each other")
+        elif self not in other.bindings:
+            # Not bound, provide meaningful error message
+            raise errors.NotBoundError("Atom is bound to other atom, but other atom is corrupted")
+        
+        n = self.bindings[other]
+        del self.bindings[other]
+        del other.bindings[self]
+        self.num_bindings-=n
+        other.num_bindings-=n
+    
+    def erase(self):
+        for other in list(self.bindings.keys()):
+            self.unbindFromAtom(other)
+        
+        self.structure.atoms.discard(self)
     
     def fillWithHydrogen(self):
         # TODO: Add some smart positioning for hydrogen "childs"
@@ -85,6 +111,13 @@ class Carbon(Atom):
     atomtype = "Carbon"
     symbol = "C"
     max_bindings = 4
+    
+    def erase(self,eraseHydrogen=True):
+        if eraseHydrogen:
+            for other in list(self.bindings.keys()):
+                if other.symbol=="H":
+                    other.erase()
+        super(Carbon,self).erase()
 
 class Hydrogen(Atom):
     atomtype = "Hydrogen"
