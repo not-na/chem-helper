@@ -34,11 +34,13 @@ class Atom(object):
         
         self.name = name
         
-        self.bindings = {}
+        self.bindings = {} # map of Atom:int (bond count)
+        self.bonddata = {} # map of Atom:dict (bond data)
         
         self.num_bindings = 0
+        self.fill_hydrogen = True
     
-    def bindToAtom(self,other,bindings=1):
+    def bindToAtom(self,other,bindings=1,sdata=None,odata=None):
         if not isinstance(other,Atom):
             # Prevents bugs further down
             raise errors.NotAnAtomError("Cannot bind to non-atom")
@@ -56,8 +58,12 @@ class Atom(object):
             # Not enough bindings are available to bind to this (other) atom
             raise errors.NotEnoughBindingsError("Not enough bindings available to bind to this atom")
         
+        sdata = sdata if sdata is not None else {}
+        
         self.bindings[other]=bindings
+        self.bonddata[other]=sdata
         other.bindings[self]=bindings
+        other.bonddata[self]=odata if odata is not None else sdata
         self.num_bindings+=bindings
         other.num_bindings+=bindings
     def unbindFromAtom(self,other):
@@ -78,6 +84,11 @@ class Atom(object):
         self.num_bindings-=n
         other.num_bindings-=n
     
+    def getBondData(self,other):
+        if other not in self.bonddata:
+            raise errors.NotBoundError("Cannot get bond data of non-bound atom")
+        return self.bonddata[other],other.bonddata[self]
+    
     def erase(self):
         for other in list(self.bindings.keys()):
             self.unbindFromAtom(other)
@@ -85,6 +96,8 @@ class Atom(object):
         self.structure.atoms.discard(self)
     
     def fillWithHydrogen(self):
+        if not self.fill_hydrogen:
+            return
         # TODO: Add some smart positioning for hydrogen "childs"
         while self.num_bindings<self.max_bindings:
             h = Hydrogen(self.structure)
@@ -101,7 +114,6 @@ class Atom(object):
         if isinstance(other,Atom):
             return self.name<other.name # Allows for sorting
         raise TypeError("Cannot compare %s to %s"%(self.__class__.__name__,other.__class__.__name__))
-    
     def __gt__(self,other):
         if isinstance(other,Atom):
             return self.name>other.name # Allows for sorting
@@ -120,6 +132,8 @@ class Carbon(Atom):
         super(Carbon,self).erase()
 
 class Hydrogen(Atom):
+    #def fillWithHydrogen(self):
+    #    raise TypeError("Cannot fill Hydrogen with Hydrogen")
     atomtype = "Hydrogen"
     symbol = "H"
     max_bindings = 1
@@ -128,6 +142,13 @@ class Oxygen(Atom):
     atomtype = "Oxygen"
     symbol = "O"
     max_bindings = 2
+    
+    def erase(self,eraseHydrogen=True):
+        if eraseHydrogen:
+            for other in list(self.bindings.keys()):
+                if other.symbol=="H":
+                    other.erase()
+        super(Oxygen,self).erase()
     # TODO: implement special render with "shields" for oxygen only
 
 class Nitrogen(Atom):

@@ -124,6 +124,28 @@ class StructuralNotation(BaseNotation):
                     # Follow it and measure its length
                     grouptype,extradata = self.analyzeBranch(backbone,c,neighbour)
                     groups.append([n,grouptype,extradata])
+                elif neighbour.symbol=="O":
+                    # Found an oxygen side-branch
+                    # Check if it is a Hydroxy Group by checking the binding
+                    if c.bindings[neighbour] == 1:
+                        # Hydroxy Group
+                        h = 0
+                        for n2 in neighbour.bindings:
+                            if n2.symbol=="H":
+                                h+=1
+                        if h==1:
+                            grouptype = "hydroxyl"
+                            extradata = {"c":c,"n":n}
+                            groups.append([n,grouptype,extradata])
+                        else:
+                            # Not bound to a hydrogen on the other end, not supported
+                            raise errors.UnsupportedGroupError("Non-Hydroxy Oxygen based Groups are currently not supported")
+                    elif c.bindings[neighbour] == 2:
+                        # Keto Group
+                        raise errors.UnsupportedGroupError("Keto Groups are currently not supported")
+                    else:
+                        # Not chemically possible
+                        raise errors.InvalidFormulaError("Triple bindings are not possible for oxygen atoms")
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         max_n = len(backbone)+1 # needed for an off-by-one bug
@@ -144,12 +166,22 @@ class StructuralNotation(BaseNotation):
         # Dict of n:list of groups
         alkyl_groups = {}
         
+        hydroxyl_groups = {}
+        
         # Group together the alkyl groups
         for n,grouptype,extradata in groups:
             if grouptype=="alkyl":
                 if extradata["n"] not in alkyl_groups:
                     alkyl_groups[extradata["n"]]=[]
                 alkyl_groups[extradata["n"]].append([n,grouptype,extradata])
+            elif grouptype=="hydroxyl":
+                if extradata["n"] not in hydroxyl_groups:
+                    hydroxyl_groups[extradata["n"]]=[]
+                else:
+                    # there was already one group at this carbon
+                    # erlenmeyer rule prevents this
+                    raise errors.InvalidFormulaError("Cannot have more than one hydroxy group per carbon")
+                hydroxyl_groups[extradata["n"]].append([n,grouptype,extradata])
             else:
                 raise errors.UnsupportedGroupError("Groups of type '%s' are not yet supported"%grouptype)
         
@@ -178,14 +210,40 @@ class StructuralNotation(BaseNotation):
             prefixes.append(name_out)
         alkyl_prefix = "-".join(prefixes)
         
+        # Hydroxyl Groups/Alkanol
+        # Already grouped together in hydroxyl_groups
+        suffixes = []
+        count = 0
+        for n,groups in hydroxyl_groups.items():
+            for g_n,g_gt,g_ed in groups:
+                suffixes.append(n)
+                count+=1
+        suffixes = sorted(suffixes)
+        if count==0:
+            # No hydroxyl groups, just use -ane as the suffix
+            hydroxy_suffix="ane"
+        elif count==1:
+            # Just one group, use -ol but no multiplier
+            if suffixes[0]==1 or suffixes[0]==len(backbone):
+                # at the start of the molecule, no need to specify
+                # TODO: verify this
+                hydroxy_suffix="anol"
+            else:
+                hydroxy_suffix="an-%s-ol"%suffixes[0]
+        else:
+            # Possibly many different suffixes
+            # TODO: implement this
+            raise errors.UnsupportedFeatureError("Multiple hydroxy groups cannot yet be named")
+        
         # Create the base name
-        base_name = iupac.getAlkanePrefix(len(backbone))+"ane"
+        base_name = iupac.getAlkanePrefix(len(backbone))+hydroxy_suffix
         
         # Combine it
         out = alkyl_prefix+base_name
         
         if not out[0].isdigit():
-            out = out.title()
+            # Only capitalizes first character, otherwise -ol suffixes would also be capitalized
+            out=out[0].upper()+out[1:]
         
         out = iupac.IUPACNotation(out)
         return out
@@ -251,11 +309,26 @@ class StructuralNotation(BaseNotation):
                     if n not in groups:
                         groups[n]=[]
                     groups[n].append(group)
+                elif neighbour.symbol=="O":
+                    # Only hydroxy groups are currently supported
+                    h = 0
+                    for n2 in neighbour.bindings:
+                        if n2.symbol=="H":
+                            h+=1
+                    if h==1:
+                        # Is a hydroxy group
+                        group = [n,"hydroxy",None]
+                        if n not in groups:
+                            groups[n]=[]
+                        groups[n].append(group)
+                    else:
+                        raise errors.UnsupportedGroupError("Ketogroups are currently not supported")
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         
         max_n = len(backbone)+1 # needed for an off-by-one bug
         
+        # Calculates sum of flipping the molecule numbering versus not flipping it
         unflip_sum = sum([sum([g[0] for g in glist]) for glist in groups.values()])
         flip_sum = sum([sum([max_n-g[0] for g in glist]) for glist in groups.values()])
         
@@ -302,7 +375,7 @@ class StructuralNotation(BaseNotation):
                 
                 #print("Side chains at %s:"%n)
                 
-                groups_sorted = sorted(groups[n],key=(lambda group: group[2]["n"]))
+                groups_sorted = sorted(groups[n],key=(lambda group: (group[2]["n"] if group[1]=="alkyl" else 0)))
                 
                 #for g in groups_sorted:
                 #    print("\t%s"%g)
@@ -313,6 +386,9 @@ class StructuralNotation(BaseNotation):
                     if gtype == "alkyl":
                         # Add parentheses containing the group
                         out += "("+("C"*gdata["n"])+")"
+                    elif gtype == "hydroxy":
+                        # Add parentheses containing the hydroxy group
+                        out += "(O)"
                     else:
                         raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
         
@@ -325,6 +401,7 @@ class StructuralNotation(BaseNotation):
         
         d_list = list(data)
         c_index = 0
+        binding_type = 1
         prev = None
         stack = []
         while d_list!=[]:
@@ -338,10 +415,29 @@ class StructuralNotation(BaseNotation):
                 continue
             elif d_list[0] in ">":
                 raise errors.UnsupportedSMILESFeatureError("SMILES Reactions are not supported")
-            elif d_list[0] in "-=#:@123456789%/\\.":
+            elif d_list[0] in "@123456789%/\\.":
                 # Features in order:
-                # Bindings,Chirality,Cyclic Structures,Directional Bonds,Disconnected Structures
+                # Chirality 1x ,Cyclic Structures 10x,Directional Bonds 2x,Disconnected Structures 1x
                 raise errors.UnsupportedSMILESFeatureError("SMILES Feature at %s is not yet supported"%c_index)
+            elif d_list[0] in "-=#:":
+                # Check if we are at the end of a group, no bindings may be specified there
+                if len(d_list)<=1:
+                    raise errors.SMILESSyntaxError("Dangling binding type at the end of input")
+                elif d_list[1]==")":
+                    raise errors.SMILESSyntaxError("Tried to specify binding type at the end of a group")
+                elif binding_type!=1:
+                    # Does not catch multiple single bond specifications
+                    raise errors.SMILESSyntaxError("Multiple binding specification at char %s"%(c_index+1))
+                if d_list[0]=="-":
+                    binding_type=1
+                elif d_list[0]=="=":
+                    binding_type=2
+                elif d_list[0]=="#":
+                    binding_type=3
+                elif d_list[0]==":":
+                    raise errors.UnsupportedSMILESFeatureError("Aromatic bindings are not yet supported")
+                d_list.pop(0)
+                c_index+=1
             elif d_list[0]=="(":
                 # Start of branch
                 if c_index==0:
@@ -443,7 +539,10 @@ class StructuralNotation(BaseNotation):
             
             # Connect to the previous atom
             if prev is not None:
-                prev.bindToAtom(atom)
+                if binding_type!=1:
+                    raise errors.UnsupportedSMILESFeatureError("Multiple bindings are currently not supported")
+                prev.bindToAtom(atom,binding_type)
+                binding_type=1
             prev = atom
         if stack != []:
             raise errors.SMILESSyntaxError("%s parentheses have not been closed at the end, starting with %s"%(len(stack),stack[-1]))
@@ -534,20 +633,30 @@ class StructuralNotation(BaseNotation):
         # This example demonstrates that simply recursively searching from one end will not work
         
         # Check for methane, special
-        if self.countAtoms()=={"C":1,"H":4}:
+        if self.countAtoms()["C"]==1:
             for atom in self.atoms:
                 if atom.symbol=="C":
                     return [atom]
+        elif self.countAtoms()["C"]==0:
+            raise errors.UnsupportedFeatureError("Molecules without a carbon backbone are currently not supported")
         
         # List of all dead-end carbon atoms
         ends = []
         for atom in self.atoms:
+            #print("ATOM %s"%atom)
+            # for every carbon atom
             if atom.symbol=="C":
+                #print("Carbon")
                 f = 0
+                # go through all bound atoms
                 for other in atom.bindings.keys():
+                    #print("\tNeighbour %s"%atom)
                     if other.symbol=="C":
+                        #print("\tNeighbouring Carbon")
                         f +=1
                 if f<=1:
+                    #print("END %s"%atom)
+                    # if it is connected to one or fewer carbons, it is a dead end
                     ends.append(atom)
         
         # Check that there are at least two endpoints

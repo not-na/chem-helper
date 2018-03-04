@@ -46,6 +46,17 @@ test_cases_i2s_branched_alkane = [
     ["12,12,13,13,14,14-hexakisdecyltriacontane",("C"*12)+(DECYL*2)+"C"+(DECYL*2)+"C"+(DECYL*2)+("C"*16)], # Tests hexakis- prefix and three double-sidechains next to eachother
     ["Hectane","C"*100], # Tests very large molecules
     ["Dictane","C"*200], # More large molecules
+    
+    # Basic Alkanol Tests
+    ["Ethanol","C(O)C"],
+    ["Propanol","C(O)CC"],
+    ["Hexanol","C(O)CCCCC"],
+    
+    # Alkanol Tests with specified position
+    ["Propan-2-ol","CC(O)C"],
+    
+    # Currently only works in one direction
+    #["Hexane-1,2-diol","C(O)C(O)CCCC"]
     ]
 
 test_cases_s2i_special = [

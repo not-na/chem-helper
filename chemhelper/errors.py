@@ -25,6 +25,7 @@
 class ChemError(Exception):pass
 
 class IncompleteFormulaError(Exception):pass
+class InvalidFormulaError(Exception):pass
 class InvalidMultiplier(Exception):pass
 class MultipleMoleculesError(Exception):pass
 class BaseAtomOutOfRangeError(Exception):pass
@@ -38,6 +39,7 @@ class NotEnoughBindingsError(BindingError):pass
 class NotBoundError(BindingError):pass
 
 class InvalidPrefixError(Exception):pass
+class InvalidSuffixError(Exception):pass
 
 class CyclicMoleculeError(Exception):pass
 class InvalidGroupError(Exception):pass
