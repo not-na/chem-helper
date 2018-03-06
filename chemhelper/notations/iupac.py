@@ -292,6 +292,36 @@ class IUPACNotation(BaseNotation):
         # 5. Connect the functional groups to the main chain
         # 6. Fill the molecule with hydrogen
         
+        # Rules that are being followed:
+        # 1.1: Unbranched Alkane base names
+        # 2.2: Numbering of multiple side-chains, TODO: may sometimes be buggy
+        # 2.3: Ordering of multiple side-chains of different nature
+        # 2.5a: Multiplying prefixes in front of identical groups
+        # 102.1: Halogen Derivate naming using prefixes
+        # 201.1: Alcohols using -ol suffix
+        
+        # Rules that are partially being followed:
+        # 1.2: Alkyl groups naming, only supported as functional group and not standalone
+        # 2.1: Basic branches, but iso- and neo- prefixes are not supported
+        
+        # Rules that may be implemented in the future:
+        # 2.25: Numbering of branched Alkyl groups
+        # 2.4: Ordering of side chains in equivalent positions
+        # 2.6: Main chain selection in case of multiple same-length candidates
+        # 3.1: Double bond in main chain suffix -ene
+        # 3.2: Triple bond in main chain suffix -yne
+        # 3.3: Both double and triple bond in main chain
+        # 3.4: Main chain selection based on max amount of double and triple bonds
+        # 3.5: Endings of radicals based alkenes/alkynes
+        # 3.6: Main chain selection in radicals
+        # 103.1: Halogens using Radicofunctional names like "Methyl chloride"
+        # 105.1: Naming of Halogens replacing all Hydrogen using per- prefix
+        # 108.1: Halogen Derivate trivial names
+        # 108.2: Halogen Derivate inorganic nomenclature
+        # 201.2: Alcohols using hydroxy- prefix
+        # 201.3: Alcohols using Radicofunctional names like "Methyl alcohol"
+        # 201.4: Alcohol trivial names
+        
         data = {}
         self.i2s_stage1(data)
         self.i2s_stage2(data)
@@ -318,13 +348,14 @@ class IUPACNotation(BaseNotation):
             # Check to make sure we are actually dealing with an alkane
             raise errors.UnsupportedFormulaTypeError("Cannot convert non alkane-based names")
         pre_main,suffix = self.name.rsplit("an",maxsplit=1)
-        # Remove the extra e at the start of the suffix, if any
-        print(suffix)
+        # Remove the extra e and dash at the start of the suffix, if any
+        #print(suffix)
         suffix = suffix.lstrip("e")
         suffix = suffix.lstrip("-")
-        print(suffix)
+        print("Suffix: %s"%suffix)
         
         # Parse main chain length out of the remaining string
+        # Note that parseAlkanePrefix will automatically lower-case all outputs
         data["main_chain_length"],prefix = parseAlkanePrefix(pre_main,True)
         
         # Now, we parse the prefix
@@ -340,7 +371,6 @@ class IUPACNotation(BaseNotation):
                 # May occur if there is an odd number of dashes
                 #raise errors.InvalidPrefixError("Invalid prefix with an odd number of dashes")
                 break
-            
             positions = [int(i) for i in num_prefix.split(",")]
             data["prefixes"].append([positions,prefixname])
         
@@ -397,6 +427,140 @@ class IUPACNotation(BaseNotation):
                 raise errors.UnsupportedFeatureError("Amines are currently not supported")
             elif prefixname.endswith("carboxy"):
                 raise errors.UnsupportedFeatureError("Carboxylic Acids are currently not supported")
+            elif prefixname.endswith("fluoro"):
+                # Fluorine Group
+                multprefix = prefixname[:-6] # removes the fluoro from the end
+                multiplier = parseAlkylMultiplierPrefix(multprefix)
+                
+                if positions is None:
+                    if multiplier>data["main_chain_length"]:
+                        raise errors.InvalidMultiplier("Multiplier %s of fluoro Group announces %s positions, but only %s available"%(
+                                multprefix,multiplier,data["main_chain_length"]
+                                ))
+                    positions = []
+                    # positions were not specified, need to be generated
+                    # Alternating from both ends and at opposite ends
+                    # Note that this may not always be chemically correct
+                    # TODO: make the placement smarter
+                    # When the first/last atom are already specified "away" and are full, this algorithm may cause a NotEnoughBindingsError
+                    for i in range(multiplier):
+                        if i%2==0: # left
+                            positions.append(int(i/2)+1)
+                        else: # right
+                            positions.append(data["main_chain_length"]-(int(i/2)+1))
+                
+                if multiplier!=len(positions):
+                    raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in fluoro group %s"%(
+                            multprefix,multiplier,len(positions),",".join([str(i) for i in positions])+"-"+prefixname
+                            ))
+                
+                # Go through every functional group specified by this suffix
+                for position in positions:
+                    # Store the result
+                    fg = {
+                        "type":"fluoro",
+                        "base":position,
+                        }
+                    data["fgroups"].append(fg)
+            elif prefixname.endswith("chloro"):
+                # Chlorine Group
+                multprefix = prefixname[:-6] # removes the chloro from the end
+                multiplier = parseAlkylMultiplierPrefix(multprefix)
+                
+                if positions is None:
+                    if multiplier>data["main_chain_length"]:
+                        raise errors.InvalidMultiplier("Multiplier %s of chloro Group announces %s positions, but only %s available"%(
+                                multprefix,multiplier,data["main_chain_length"]
+                                ))
+                    positions = []
+                    # positions were not specified, need to be generated
+                    # Alternating from both ends and at opposite ends
+                    # Note that this may not always be chemically correct
+                    for i in range(multiplier):
+                        if i%2==0: # left
+                            positions.append(int(i/2)+1)
+                        else: # right
+                            positions.append(data["main_chain_length"]-(int(i/2)+1))
+                
+                if multiplier!=len(positions):
+                    raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in chloro group %s"%(
+                            multprefix,multiplier,len(positions),",".join([str(i) for i in positions])+"-"+prefixname
+                            ))
+                
+                # Go through every functional group specified by this suffix
+                for position in positions:
+                    # Store the result
+                    fg = {
+                        "type":"chloro",
+                        "base":position,
+                        }
+                    data["fgroups"].append(fg)
+            elif prefixname.endswith("bromo"):
+                # Bromine Group
+                multprefix = prefixname[:-5] # removes the bromo from the end
+                multiplier = parseAlkylMultiplierPrefix(multprefix)
+                
+                if positions is None:
+                    if multiplier>data["main_chain_length"]:
+                        raise errors.InvalidMultiplier("Multiplier %s of bromo Group announces %s positions, but only %s available"%(
+                                multprefix,multiplier,data["main_chain_length"]
+                                ))
+                    positions = []
+                    # positions were not specified, need to be generated
+                    # Alternating from both ends and at opposite ends
+                    # Note that this may not always be chemically correct
+                    for i in range(multiplier):
+                        if i%2==0: # left
+                            positions.append(int(i/2)+1)
+                        else: # right
+                            positions.append(data["main_chain_length"]-(int(i/2)+1))
+                
+                if multiplier!=len(positions):
+                    raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in bromo group %s"%(
+                            multprefix,multiplier,len(positions),",".join([str(i) for i in positions])+"-"+prefixname
+                            ))
+                
+                # Go through every functional group specified by this suffix
+                for position in positions:
+                    # Store the result
+                    fg = {
+                        "type":"bromo",
+                        "base":position,
+                        }
+                    data["fgroups"].append(fg)
+            elif prefixname.endswith("iodo"):
+                # Iodine Group
+                multprefix = prefixname[:-4] # removes the iodo from the end
+                multiplier = parseAlkylMultiplierPrefix(multprefix)
+                
+                if positions is None:
+                    if multiplier>data["main_chain_length"]:
+                        raise errors.InvalidMultiplier("Multiplier %s of iodo Group announces %s positions, but only %s available"%(
+                                multprefix,multiplier,data["main_chain_length"]
+                                ))
+                    positions = []
+                    # positions were not specified, need to be generated
+                    # Alternating from both ends and at opposite ends
+                    # Note that this may not always be chemically correct
+                    for i in range(multiplier):
+                        if i%2==0: # left
+                            positions.append(int(i/2)+1)
+                        else: # right
+                            positions.append(data["main_chain_length"]-(int(i/2)+1))
+                
+                if multiplier!=len(positions):
+                    raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in iodo group %s"%(
+                            multprefix,multiplier,len(positions),",".join([str(i) for i in positions])+"-"+prefixname
+                            ))
+                
+                # Go through every functional group specified by this suffix
+                for position in positions:
+                    # Store the result
+                    fg = {
+                        "type":"iodo",
+                        "base":position,
+                        }
+                    data["fgroups"].append(fg)
             else:
                 # Just assume it is an alkyl
                 try:
@@ -479,11 +643,20 @@ class IUPACNotation(BaseNotation):
         data["struct"] = structural.StructuralNotation()
         
         # Iterate through all functional groups and call the appropriate constructor
+        # The constructors do not return anything, but they will modify the fg dict and add the bondinfo key
         for fg in data["fgroups"]:
             if fg["type"]=="alkyl":
                 self.fg_alkyl(fg,data)
             elif fg["type"]=="hydroxyl":
                 self.fg_hydroxyl(fg,data)
+            elif fg["type"]=="fluoro":
+                self.fg_fluoro(fg,data)
+            elif fg["type"]=="chloro":
+                self.fg_chloro(fg,data)
+            elif fg["type"]=="bromo":
+                self.fg_bromo(fg,data)
+            elif fg["type"]=="iodo":
+                self.fg_iodo(fg,data)
             else:
                 raise errors.UnsupportedGroupError("Functional groups of type '%s' cannot be converted to structures yet"%fg["type"])
     def i2s_stage4(self,data):
@@ -547,6 +720,54 @@ class IUPACNotation(BaseNotation):
         conn = o
         n = 1
         bdata = {"reason":"Hydroxyl Group generated from IUPAC Name"}
+        cdata = bdata
+        fg["bondinfo"] = base,conn,n,bdata,cdata
+    def fg_fluoro(self,fg,data):
+        # Creates a fluoro group, but does not yet connect it with the main chain
+        # Create Fluorine
+        f = data["struct"].addFluorine(name="F@%s"%fg["base"])
+        
+        # Create bondinfo
+        base = fg["base"]
+        conn = f
+        n = 1
+        bdata = {"reason":"Fluoro Group generated from IUPAC Name"}
+        cdata = bdata
+        fg["bondinfo"] = base,conn,n,bdata,cdata
+    def fg_chloro(self,fg,data):
+        # Creates a chloro group, but does not yet connect it with the main chain
+        # Create Chlorine
+        c = data["struct"].addChlorine(name="Cl@%s"%fg["base"])
+        
+        # Create bondinfo
+        base = fg["base"]
+        conn = c
+        n = 1
+        bdata = {"reason":"Chloro Group generated from IUPAC Name"}
+        cdata = bdata
+        fg["bondinfo"] = base,conn,n,bdata,cdata
+    def fg_bromo(self,fg,data):
+        # Creates a bromo group, but does not yet connect it with the main chain
+        # Create Bromine
+        b = data["struct"].addBromine(name="Br@%s"%fg["base"])
+        
+        # Create bondinfo
+        base = fg["base"]
+        conn = b
+        n = 1
+        bdata = {"reason":"Bromo Group generated from IUPAC Name"}
+        cdata = bdata
+        fg["bondinfo"] = base,conn,n,bdata,cdata
+    def fg_iodo(self,fg,data):
+        # Creates a iodo group, but does not yet connect it with the main chain
+        # Create Iodine
+        i = data["struct"].addIodine(name="I@%s"%fg["base"])
+        
+        # Create bondinfo
+        base = fg["base"]
+        conn = i
+        n = 1
+        bdata = {"reason":"Iodo Group generated from IUPAC Name"}
         cdata = bdata
         fg["bondinfo"] = base,conn,n,bdata,cdata
     

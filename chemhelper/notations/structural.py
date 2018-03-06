@@ -32,7 +32,7 @@ from . import BaseNotation
 from . import iupac
 from .. import errors
 from .. import elements
-from ..elements import Atom, Carbon, Hydrogen, Oxygen
+from ..elements import Atom, Carbon, Hydrogen, Oxygen, Nitrogen, Sulfur, Phosphorus, Fluorine, Chlorine, Bromine, Iodine, Boron
 
 iupac.structural = sys.modules["chemhelper.notations.structural"] # to avoid circular dependency
 
@@ -54,6 +54,38 @@ class StructuralNotation(BaseNotation):
         return a
     def addOxygen(self,pos=None,name=""):
         a = Oxygen(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addNitrogen(self,pos=None,name=""):
+        a = Nitrogen(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addSulfur(self,pos=None,name=""):
+        a = Sulfur(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addPhosphorus(self,pos=None,name=""):
+        a = Phosphorus(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addFluorine(self,pos=None,name=""):
+        a = Fluorine(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addChlorine(self,pos=None,name=""):
+        a = Chlorine(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addBromine(self,pos=None,name=""):
+        a = Bromine(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addIodine(self,pos=None,name=""):
+        a = Iodine(self,pos,name)
+        self.atoms.add(a)
+        return a
+    def addBoron(self,pos=None,name=""):
+        a = Boron(self,pos,name)
         self.atoms.add(a)
         return a
     
@@ -85,7 +117,11 @@ class StructuralNotation(BaseNotation):
     def asStructuralFormula(self):
         return self
     
-    def asIUPACName(self):
+    # Old version of algorithm
+    # Most sub-routines and sub-algorithms have been ported over to the more flexible newer algorithm
+    # There is no real reason to use this old algorithm
+    """
+    def asIUPACName_OLD(self):
         if self.checkValid()!=[]:
             raise errors.IncompleteFormulaError("At least %s atoms are invalid, cannot convert if not valid"%len(self.checkValid()))
         
@@ -146,8 +182,14 @@ class StructuralNotation(BaseNotation):
                     else:
                         # Not chemically possible
                         raise errors.InvalidFormulaError("Triple bindings are not possible for oxygen atoms")
+                elif neighbour.symbol=="F":
+                    # Found a Fluoro group
+                    # No further checking required, since Fluorine only takes one binding
+                    grouptype = "fluoro"
+                    extradata = {"c":c,"n":n}
+                    groups.append([n,grouptype,extradata])
                 else:
-                    raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
+                    raise errors.UnsupportedElementError("Element '%s' (%s) is not currently supported"%(neighbour.symbol,neighbour.atomtype))
         max_n = len(backbone)+1 # needed for an off-by-one bug
         
         unflip_sum = sum([group[0] for group in groups])
@@ -182,7 +224,9 @@ class StructuralNotation(BaseNotation):
                     # erlenmeyer rule prevents this
                     raise errors.InvalidFormulaError("Cannot have more than one hydroxy group per carbon")
                 hydroxyl_groups[extradata["n"]].append([n,grouptype,extradata])
+            
             else:
+                # Should only happen if functional group detection has been added for a group that is not yet supported here
                 raise errors.UnsupportedGroupError("Groups of type '%s' are not yet supported"%grouptype)
         
         # Dict of prefix:data
@@ -247,6 +291,323 @@ class StructuralNotation(BaseNotation):
         
         out = iupac.IUPACNotation(out)
         return out
+    """
+    
+    def asIUPACName(self,advanced=False):
+        # Parsing is done in multiple stages
+        # 1. Validate the molecule and check for edge cases
+        # 2. Find carbon backbone
+        # 3. Parse all branches into functional groups
+        # 4. Determine if the ordering must be flipped
+        # 5. Group all groups
+        # 6. Seperate Prefix and Suffix Groups
+        # 7. Create the prefix names for all groups of groups
+        # 8. Create the suffix names for all groups of groups
+        # 9. Merge prefix, base name, and suffix
+        
+        # Rules that are being followed:
+        # 1.1: Unbranched Alkane base names
+        # 2.2: Numbering of multiple side-chains, TODO: may sometimes be buggy
+        # 2.3: Ordering of multiple side-chains of different nature
+        # 2.5a: Multiplying prefixes in front of identical groups
+        # 102.1: Halogen Derivate naming using prefixes
+        # 201.1: Alcohols using -ol suffix
+        
+        # Rules that are partially being followed:
+        # 1.2: Alkyl groups naming, only supported as functional group and not standalone
+        # 2.1: Basic branches, but iso- and neo- prefixes are not supported
+        
+        # Rules that may be implemented in the future:
+        # 2.25: Numbering of branched Alkyl groups
+        # 2.4: Ordering of side chains in equivalent positions
+        # 2.6: Main chain selection in case of multiple same-length candidates
+        # 3.1: Double bond in main chain suffix -ene
+        # 3.2: Triple bond in main chain suffix -yne
+        # 3.3: Both double and triple bond in main chain
+        # 3.4: Main chain selection based on max amount of double and triple bonds
+        # 3.5: Endings of radicals based alkenes/alkynes
+        # 3.6: Main chain selection in radicals
+        # 103.1: Halogens using Radicofunctional names like "Methyl chloride"
+        # 105.1: Naming of Halogens replacing all Hydrogen using per- prefix
+        # 108.1: Halogen Derivate trivial names
+        # 108.2: Halogen Derivate inorganic nomenclature
+        # 201.2: Alcohols using hydroxy- prefix
+        # 201.3: Alcohols using Radicofunctional names like "Methyl alcohol"
+        # 201.4: Alcohol trivial names
+        
+        data = {}
+        self.s2i_stage1(data)
+        self.s2i_stage2(data)
+        self.s2i_stage3(data)
+        self.s2i_stage4(data)
+        self.s2i_stage5(data)
+        self.s2i_stage6(data)
+        self.s2i_stage7(data)
+        self.s2i_stage8(data)
+        self.s2i_stage9(data)
+        
+        if not advanced:
+            return data["out"]
+        else:
+            return data["out"],data
+    
+    def s2i_stage1(self,data):
+        # Stage 1
+        # 1. Validate the molecule and check for edge cases
+        if self.checkValid()!=[]:
+            raise errors.IncompleteFormulaError("At least %s atoms are invalid, cannot convert if not valid"%len(self.checkValid()))
+        
+        # Check for methane, special
+        if self.countAtoms()=={"C":1,"H":4}:
+            return iupac.IUPACNotation("Methane")
+        elif self.countAtoms().get("C",0)==0:
+            # Prevents bugs further down
+            return iupac.IUPACNotation("")
+        
+        # Check that all atoms are connected to eachother, to prevent bugs with multiple molecules in one formula
+        self.checkConnected(True)
+    def s2i_stage2(self,data):
+        # Stage 2
+        # 2. Find carbon backbone
+        
+        # find longest carbon chain
+        data["backbone"] = self.getCarbonBackbone()
+        if len(data["backbone"])>9999:
+            raise errors.FormulaTooLargeError("Backbone is %s atoms long, only up to 9999 supported"%len(data["backbone"]))
+    def s2i_stage3(self,data):
+        # Stage 3
+        # 3. Parse all branches into functional groups
+        
+        # List of [base_n,type,data]
+        groups = []
+        
+        # Parses branches
+        n = 0
+        for c in data["backbone"]:
+            # Go through each atom of the backbone and count the number
+            n+=1
+            for neighbour in c.bindings:
+                if neighbour in data["backbone"]:
+                    # Neighbour is part of the backbone
+                    continue
+                elif neighbour.symbol=="H":
+                    # Hydrogen is (currently) ignored, as it is not relevant
+                    continue
+                elif neighbour.symbol=="C":
+                    # Found a carbon side-branch
+                    # Follow it and measure its length
+                    if c.bindings[neighbour] == 1:
+                        # Alkyl Group
+                        grouptype,extradata = self.analyzeBranch(data["backbone"],c,neighbour)
+                        groups.append([n,grouptype,extradata])
+                    else:
+                        raise errors.UnsupportedGroupError("Only single bonds are supported between carbon atoms")
+                elif neighbour.symbol=="O":
+                    # Found an oxygen side-branch
+                    # Check if it is a Hydroxy Group by checking the binding
+                    if c.bindings[neighbour] == 1:
+                        # Hydroxy Group
+                        h = 0
+                        for n2 in neighbour.bindings:
+                            if n2.symbol=="H":
+                                h+=1
+                        if h==1:
+                            grouptype = "hydroxyl"
+                            extradata = {"c":c,"n":n}
+                            groups.append([n,grouptype,extradata])
+                        else:
+                            # Not bound to a hydrogen on the other end, not supported
+                            raise errors.UnsupportedGroupError("Non-Hydroxy Oxygen based Groups are currently not supported")
+                    elif c.bindings[neighbour] == 2:
+                        # Keto Group
+                        raise errors.UnsupportedGroupError("Keto Groups are currently not supported")
+                    else:
+                        # Not chemically possible
+                        raise errors.InvalidFormulaError("Triple bindings are not possible for oxygen atoms")
+                elif neighbour.symbol=="F":
+                    # Found a Fluoro group
+                    # No further checking required, since Fluorine only takes one binding
+                    grouptype = "fluoro"
+                    extradata = {"c":c,"n":n}
+                    groups.append([n,grouptype,extradata])
+                elif neighbour.symbol=="Cl":
+                    # Found a Chloro group
+                    # No further checking required, since Chlorine only takes one binding
+                    grouptype = "chloro"
+                    extradata = {"c":c,"n":n}
+                    groups.append([n,grouptype,extradata])
+                elif neighbour.symbol=="Br":
+                    # Found a Bromo group
+                    # No further checking required, since Bromine only takes one binding
+                    grouptype = "bromo"
+                    extradata = {"c":c,"n":n}
+                    groups.append([n,grouptype,extradata])
+                elif neighbour.symbol=="I":
+                    # Found a Iodo group
+                    # No further checking required, since Iodine only takes one binding
+                    grouptype = "iodo"
+                    extradata = {"c":c,"n":n}
+                    groups.append([n,grouptype,extradata])
+                else:
+                    # May happen if an unsupported element is loaded via a SMILES File
+                    raise errors.UnsupportedElementError("Element '%s' (%s) is not currently supported"%(neighbour.symbol,neighbour.atomtype))
+        
+        data["f_groups"] = groups
+    def s2i_stage4(self,data):
+        # Stage 4
+        # 4. Determine if the ordering must be flipped
+        
+        max_n = len(data["backbone"])+1 # needed for an off-by-one bug
+        
+        unflip_sum = sum([group[0] for group in data["f_groups"]])
+        flip_sum = sum([max_n-group[0] for group in data["f_groups"]])
+        
+        if unflip_sum<flip_sum:
+            pass # Do nothing, unflipped yields the lowest numbers
+        elif flip_sum<unflip_sum:
+            n_groups = []
+            for n,grouptype,extradata in data["f_groups"]:
+                n_groups.append([max_n-n,grouptype,extradata])
+            data["f_groups"] = n_groups
+    def s2i_stage5(self,data):
+        # Stage 5
+        # 5. Group all groups
+        
+        # Dict of name:list of groups
+        # If name is an integer, the group is an alkyl group of the given length
+        g_groups = {}
+        
+        for n,grouptype,edata in data["f_groups"]:
+            if grouptype=="alkyl":
+                # Alkyl groups are treated specially, since there are different types
+                if edata["n"] not in g_groups:
+                    g_groups[edata["n"]]=[]
+                g_groups[edata["n"]].append([n,grouptype,edata])
+            else:
+                # All other groups get grouped by their grouptype
+                if grouptype not in g_groups:
+                    g_groups[grouptype]=[]
+                g_groups[grouptype].append([n,grouptype,edata])
+        
+        data["g_groups"] = g_groups
+    def s2i_stage6(self,data):
+        # Stage 6
+        # 6. Seperate Prefix and Suffix Groups
+        
+        data["s_groups"] = {}
+        data["p_groups"] = {}
+        
+        for name,groups in data["g_groups"].items():
+            if name=="hydroxyl":
+                # Currently always as a suffix
+                data["s_groups"][name]=groups
+            elif name=="fluoro":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
+            elif name=="chloro":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
+            elif name=="bromo":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
+            elif name=="iodo":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
+            elif isinstance(name,int): # Alkyls use numbers to indicate the length
+                # Always as a prefix
+                data["p_groups"][name]=groups
+            else:
+                # Should only happen if a functional group has been added in Stage 3 but not yet here
+                raise errors.UnsupportedGroupError("Groups of type '%s' are not yet supported"%name)
+    def s2i_stage7(self,data):
+        # Stage 7
+        # 7. Create the prefix names for all groups of groups
+        
+        # list of [prefix,sortkey]
+        prefixes = []
+        
+        # Generate the prefixes and appropriate sortkeys
+        for name,groups in data["p_groups"].items():
+            if isinstance(name,int): # Alkyls use numbers to indicate the length
+                base = iupac.getAlkylMultiplierPrefix(len(groups),name)+iupac.getAlkanePrefix(name)+"yl"
+                # Sorts the sub-groups by the position of the base carbon and then joins those positions together using commata
+                num = ",".join([str(i[0]) for i in sorted(groups,key=lambda g:g[0])])
+                prefix = num+"-"+base
+                prefixes.append([prefix,base])
+            elif name in ["hydroxyl","fluoro","chloro","bromo","iodo"]:
+                # Currently, all hydroxyl groups are added as suffixes
+                # This causes this to not actually be used for hydroxyl groups
+                if name=="hydroxyl":
+                    name=name[:-1] # strips the l
+                base = iupac.getAlkylMultiplierPrefix(len(groups))+name
+                # Sorts the sub-groups by the position of the base carbon and then joins those positions together using commata
+                num = ",".join([str(i[0]) for i in sorted(groups,key=lambda g:g[0])])
+                prefix = num+"-"+base
+                prefixes.append([prefix,base])
+            else:
+                raise errors.UnsupportedGroupError("Groups of type %s are not supported in prefixes"%name)
+        
+        # Sort the prefixes by the sortkey
+        # Basically equivalent to alphabetical sorting and ignoring the numbers and dashes in front of the prefixes
+        prefixes = [p[0] for p in sorted(prefixes,key=lambda p:p[1])]
+        
+        data["prefixes"]=prefixes
+        data["prefix_name"]="-".join(prefixes)
+    def s2i_stage8(self,data):
+        # Stage 8
+        # 8. Create the suffix names for all groups of groups
+        
+        # TODO: make this more flexible
+        # Currently only works with hydroxy groups as alkanols
+        
+        # Extract a list of base positions
+        suffixes = [g[0] for g in data["s_groups"].get("hydroxyl",[])]
+        
+        for name,groups in data["s_groups"].items():
+            if name!="hydroxyl":
+                raise errors.UnsupportedGroupError("Groups of type %s are not supported in suffixes"%name)
+        
+        suffixes = sorted(suffixes)
+        if len(suffixes)==0:
+            # No hydroxyl groups, just use -ane as the suffix
+            suffix="ane"
+        elif len(suffixes)==1:
+            # Just one group, use -ol but no multiplier
+            if suffixes[0]==1 or suffixes[0]==len(data["backbone"]):
+                # at the start or end of the molecule, no need to specify
+                # TODO: verify this
+                suffix="anol"
+            else:
+                suffix="an-%s-ol"%suffixes[0]
+        else:
+            # Possibly many different suffixes
+            # TODO: implement this
+            #raise errors.UnsupportedFeatureError("Multiple hydroxy groups cannot yet be named")
+            base = iupac.getAlkylMultiplierPrefix(len(suffixes))
+            num = ",".join([str(i) for i in suffixes])
+            suffix = "an-"+num+"-"+base+"ol"
+        
+        data["suffixes"]=suffixes
+        data["suffix_name"]=suffix
+    def s2i_stage9(self,data):
+        # Stage 9
+        # 9. Merge prefix, base name, and suffix
+        
+        data["base_name"]=iupac.getAlkanePrefix(len(data["backbone"]))
+        
+        data["merged_name"] = data["prefix_name"]+data["base_name"]+data["suffix_name"]
+        
+        #if not data["merged_name"][0].isdigit():
+        #    # Only capitalizes first character, otherwise -ol suffixes would also be capitalized
+        #    data["merged_name"]=data["merged_name"][0].upper()+data["merged_name"][1:]
+        # Capitalize first alphabetical character
+        for char in data["merged_name"]:
+            if char in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                i = list(data["merged_name"]).index(char) # This works because we know it is the first character of its kind
+                data["merged_name"] = data["merged_name"][:i]+char.upper()+data["merged_name"][i+1:]
+                break
+        
+        data["out"] = iupac.IUPACNotation(data["merged_name"])
     
     def checkConnected(self,raise_error=False):
         if len(self.atoms)==0:
@@ -323,14 +684,42 @@ class StructuralNotation(BaseNotation):
                         groups[n].append(group)
                     else:
                         raise errors.UnsupportedGroupError("Ketogroups are currently not supported")
+                elif neighbour.symbol in ["F","Cl","Br","I"]:
+                    # Halogen derivative
+                    group = [n,"halogen",neighbour.symbol]
+                    if n not in groups:
+                        groups[n]=[]
+                    groups[n].append(group)
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         
         max_n = len(backbone)+1 # needed for an off-by-one bug
         
+        g_flip = {}
+        for i in groups.values():
+            for n,grouptype,extradata in i:
+                n = max_n-n
+                if n not in g_flip:
+                    g_flip[n] = []
+                g_flip[n].append([n,grouptype,extradata])
+        
+        unflip_sum = sum([sum([j[0] for j in i]) for i in groups.values()])
+        flip_sum = sum([sum([j[0] for j in i]) for i in g_flip.values()])
+        
+        if unflip_sum<flip_sum:
+            pass # do nothing, unflipped yields lowest locants
+        elif unflip_sum==flip_sum:
+            # special case
+            # TODO: implement properly using rule 2.4
+            # currently, just don't flip it
+            pass
+        else:
+            # flip, for lower locants
+            groups = g_flip
+        
         # Calculates sum of flipping the molecule numbering versus not flipping it
-        unflip_sum = sum([sum([g[0] for g in glist]) for glist in groups.values()])
-        flip_sum = sum([sum([max_n-g[0] for g in glist]) for glist in groups.values()])
+        #unflip_sum = sum([sum([g[0] for g in glist]) for glist in groups.values()])
+        #flip_sum = sum([sum([max_n-g[0] for g in glist]) for glist in groups.values()])
         
         # Uncomment if problems with flipping code arise
         #print("Flip Data:")
@@ -338,17 +727,17 @@ class StructuralNotation(BaseNotation):
         #    print("%s: %s"%kv)
         #print("flip: %s unflip: %s"%(flip_sum,unflip_sum))
         
-        if unflip_sum<flip_sum:
-            pass # Do nothing, unflipped yields the lowest numbers
-        elif flip_sum<unflip_sum:
-            n_groups = {}
-            for i in groups.values():
-                for n,grouptype,extradata in i:
-                    new_n = max_n-n
-                    if new_n not in n_groups:
-                        n_groups[new_n] = []
-                    n_groups[new_n].append([new_n,grouptype,extradata])
-            groups = n_groups
+        #if unflip_sum<flip_sum:
+        #    pass # Do nothing, unflipped yields the lowest numbers
+        #elif flip_sum<unflip_sum:
+        #    n_groups = {}
+        #    for i in groups.values():
+        #        for n,grouptype,extradata in i:
+        #            new_n = max_n-n
+        #            if new_n not in n_groups:
+        #                n_groups[new_n] = []
+        #            n_groups[new_n].append([new_n,grouptype,extradata])
+        #    groups = n_groups
         
         #print("Final Groups:")
         #for n,g in groups.items():
@@ -389,6 +778,9 @@ class StructuralNotation(BaseNotation):
                     elif gtype == "hydroxy":
                         # Add parentheses containing the hydroxy group
                         out += "(O)"
+                    elif gtype == "halogen":
+                        # Add parentheses containing the halogen group
+                        out += "(%s)"%gdata
                     else:
                         raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
         
@@ -581,6 +973,7 @@ class StructuralNotation(BaseNotation):
                     n+=1
                     d["atoms"].append(atom)
                     double_branch = False
+                    lc = None
                     for neighbour in atom.bindings:
                         # TODO: detect if there is a branch on the branch
                         if neighbour == c:
@@ -595,8 +988,13 @@ class StructuralNotation(BaseNotation):
                         elif neighbour.symbol=="C":
                             if double_branch:
                                 # Triggers if more than one valid carbon to go to is detected on a single side-chain carbon
+                                print("ERROR: Prev:")
+                                print(lc)
+                                print("Cur:")
+                                print(neighbour)
                                 raise errors.UnsupportedFeatureError("Double branch detected, not supported")
                             double_branch = True
+                            lc = neighbour
                             stack.append((neighbour))
                         # else is missing, other elements handled when they are parsed in the queue
                 else:

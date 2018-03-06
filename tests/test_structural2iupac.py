@@ -30,23 +30,23 @@ from conftest import basic_alkane
 
 test_cases_i2s_branched_alkane = [
     # Some basic tests
-    ["4-ethylheptane",              7,  9,  20],
-    ["4-ethyloctane",               8, 10,  22],
+    ["4-Ethylheptane",              7,  9,  20],
+    ["4-Ethyloctane",               8, 10,  22],
     # Would use 2,3-dimethyloctane, but the current algo sometimes chooses C 2-methyl #1 instead of C1
     # Technically both are valid, but this behavior is too complicated to simply test, needs non-parametrized tests
-    ["3,4-dimethyloctane",          8, 10,  22],
+    ["3,4-Dimethyloctane",          8, 10,  22],
     
     # Various other tests
     # Checks sort order of both positions and alkyl groups
-    ["4,5-diethyl-3,4-dimethyloctane", 8, 14, 30],
-    ["3,4,5,6,7,8,9-heptamethylundecane", 11, 18, 38],
-    ["3,3,4,4,5,5-hexamethylheptane", 7, 13, 28],
+    ["4,5-Diethyl-3,4-dimethyloctane", 8, 14, 30],
+    ["3,4,5,6,7,8,9-Heptamethylundecane", 11, 18, 38],
+    ["3,3,4,4,5,5-Hexamethylheptane", 7, 13, 28],
     
     # Tests for ambiguous replacements, see http://www.acdlabs.com/iupac/nomenclature/93/r93_55.htm#r_0_1_4_2
     # Checks if trisdecyl is parsed correctly
-    ["12,13,14-trisdecyltriacontane", 30, 60, 122],
+    ["12,13,14-Trisdecyltriacontane", 30, 60, 122],
     # Checks if pentakisdecyl is parsed correctly
-    ["12,13,14,15,16-pentakisdecylhectane", 100, 150, 302],
+    ["12,13,14,15,16-Pentakisdecylhectane", 100, 150, 302],
     
     ]
 
@@ -89,7 +89,7 @@ def test_s2i_branched_alkane_1():
     
     iupacname = struct.asIUPACName()
     
-    assert iupacname.name == "4-ethylheptane"
+    assert iupacname.name == "4-Ethylheptane"
 
 def test_s2i_branched_alkane_2():
     # Other example with reverse chain
@@ -131,7 +131,7 @@ def test_s2i_branched_alkane_2():
     
     iupacname = struct.asIUPACName()
     
-    assert iupacname.name == "4-ethyloctane"
+    assert iupacname.name == "4-Ethyloctane"
 
 @pytest.mark.parametrize(("name", "chainlen","exp_c","exp_h"), test_cases_i2s_branched_alkane)
 def test_i2s_branched_alkane(name,chainlen,exp_c,exp_h):

@@ -34,16 +34,16 @@ DECYL = "(CCCCCCCCCC)"
 
 test_cases_i2s_branched_alkane = [
     # Some Basic Tests
-    ["3,4-dimethyloctane","CCC(C)C(C)CCCC"], # Tests proper flipping
-    ["4,4-dimethyloctane","CCCC(C)(C)CCCC"], # Tests proper flipping and two chains on the same base
-    ["4-ethylheptane","CCCC(CC)CCC"], # Tests Ethyl Groups
-    ["3-ethyl-3-methylhexane","CCC(C)(CC)CCC"], # Tests order of sub-chains
+    ["3,4-Dimethyloctane","CCC(C)C(C)CCCC"], # Tests proper flipping
+    ["4,4-Dimethyloctane","CCCC(C)(C)CCCC"], # Tests proper flipping and two chains on the same base
+    ["4-Ethylheptane","CCCC(CC)CCC"], # Tests Ethyl Groups
+    ["3-Ethyl-3-methylhexane","CCC(C)(CC)CCC"], # Tests order of sub-chains
     # NOTE: 3-ethyl-3-methyl-4,4-dipropylnonane was used originally, but it was ambigous and could be converted to multiple SMILES
-    ["4-ethyl-4-methyl-6,6-dipropyldodecane","CCCC(C)(CC)CC(CCC)(CCC)CCCCCC"], # More sub-chains
+    ["6,6-Dipropyl-4-ethyl-4-methyldodecane","CCCC(C)(CC)CC(CCC)(CCC)CCCCCC"], # More sub-chains
     
     # Large Molecule Tests
-    ["10,11-dinonyltricosane","CCCCCCCCCC"+NONYL+"C"+NONYL+"CCCCCCCCCCCC"], # Tests nonyl, tricosane (23) and long SMILES
-    ["12,12,13,13,14,14-hexakisdecyltriacontane",("C"*12)+(DECYL*2)+"C"+(DECYL*2)+"C"+(DECYL*2)+("C"*16)], # Tests hexakis- prefix and three double-sidechains next to eachother
+    ["10,11-Dinonyltricosane","CCCCCCCCCC"+NONYL+"C"+NONYL+"CCCCCCCCCCCC"], # Tests nonyl, tricosane (23) and long SMILES
+    ["12,12,13,13,14,14-Hexakisdecyltriacontane",("C"*12)+(DECYL*2)+"C"+(DECYL*2)+"C"+(DECYL*2)+("C"*16)], # Tests hexakis- prefix and three double-sidechains next to eachother
     ["Hectane","C"*100], # Tests very large molecules
     ["Dictane","C"*200], # More large molecules
     
@@ -55,17 +55,27 @@ test_cases_i2s_branched_alkane = [
     # Alkanol Tests with specified position
     ["Propan-2-ol","CC(O)C"],
     
+    # Ordering of prefixes
+    #["4,4-Dipropyl-2-methyldodecane","CC(C)CC(CCC)(CCC)CCCCCCCC"], # Doesn't work, algorithm sometimes wrongly detects double-branch
+    ["4,5-Dipropyl-6-methyldodecane","CCCC(CCC)C(CCC)C(C)CCCCCC"],
+    ["4-Ethyl-3-methylheptane","CCC(C)C(CC)CCC"],
+    
+    # Halogen Tests
+    ["2-Chloro-1-fluoropropane","C(F)C(Cl)C"],
+    ["1,1-Dibromo-3,3-diiodobutane","C(Br)(Br)CC(I)(I)C"],
+    
     # Currently only works in one direction
-    #["Hexane-1,2-diol","C(O)C(O)CCCC"]
+    ["Hexan-1,2-diol","C(O)C(O)CCCC"],
+    ["Methan-1,1,1,1-tetraol","C(O)(O)(O)(O)"],
     ]
 
 test_cases_s2i_special = [
     # Tests that use special features only supported by loading, not saving
-    ["[C][C][C][C][C]([C])[C]([C])[C][C]","3,4-dimethyloctane"], # Atoms in Brackets TODO: dont add hydrogen if atom in brackets
-    ["[CH3][CH2][CH2][CH2][CH1]([CH3])[CH1]([CH3])[CH2][CH3]","3,4-dimethyloctane"], # Atoms in brackets with explicit Hydrogen
-    ["CC[CH](C)(C)CC","3,3-dimethylpentane"], # Mixed brackets/no brackets and single hydrogen without number
-    ["CC(CC)C(CCCC)C","3,4-dimethyloctane"], # Start from branch
-    ["CCCCC(C) C(C) CC\n","3,4-dimethyloctane"], # Space/Newline ignored
+    ["[C][C][C][C][C]([C])[C]([C])[C][C]","3,4-Dimethyloctane"], # Atoms in Brackets TODO: dont add hydrogen if atom in brackets
+    ["[CH3][CH2][CH2][CH2][CH1]([CH3])[CH1]([CH3])[CH2][CH3]","3,4-Dimethyloctane"], # Atoms in brackets with explicit Hydrogen
+    ["CC[CH](C)(C)CC","3,3-Dimethylpentane"], # Mixed brackets/no brackets and single hydrogen without number
+    ["CC(CC)C(CCCC)C","3,4-Dimethyloctane"], # Start from branch
+    ["CCCCC(C) C(C) CC\n","3,4-Dimethyloctane"], # Space/Newline ignored
     ]
 
 @pytest.mark.parametrize(("name","smiles"),test_cases_i2s_branched_alkane)

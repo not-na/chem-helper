@@ -22,6 +22,8 @@
 #  
 #  
 
+from . import errors
+
 class Atom(object):
     atomtype = "Atom"
     symbol = "-"
