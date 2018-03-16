@@ -97,6 +97,34 @@ class StructuralNotation(BaseNotation):
             count[atom.symbol]+=1
         return count
     
+    def getSumFormula(self,element_str="{element}<sub>{count}</sub>",atomOrder=["C","H","O","F","Cl","Br","I"]):
+        sum_formula = ""
+        count = self.countAtoms()
+        elements = set()
+        
+        # Generate Sum Formula
+        for element in atomOrder:
+            if count.get(element,0)==0:
+                continue # No atoms of this type here, ignore it
+            elif count[element]==1:
+                sum_formula+=element
+                elements.add(element)
+            else:
+                sum_formula+=element_str.format(
+                    element=element,
+                    count=count[element],
+                )
+                elements.add(element)
+        
+        # Check that all atoms have been accounted for
+        for element,n in count.items():
+            if n==0:
+                continue
+            elif element not in elements:
+                raise errors.UnsupportedElementError("Element %s is currently not supported by sum formulas"%element)
+        
+        return sum_formula
+    
     def fillWithHydrogen(self):
         for atom in set(self.atoms):
             atom.fillWithHydrogen()
@@ -996,7 +1024,9 @@ class StructuralNotation(BaseNotation):
                             double_branch = True
                             lc = neighbour
                             stack.append((neighbour))
-                        # else is missing, other elements handled when they are parsed in the queue
+                        else:
+                            # Prevents atoms of other elements being silently replaced with hydrogen
+                            raise errors.UnsupportedFeatureError("Element '%s' is not currently supported in alkyl groups"%neighbour.symbol)
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported in alkyl groups"%atom.symbol)
             
