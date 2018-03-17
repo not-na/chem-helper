@@ -64,7 +64,11 @@ test_cases_i2s_branched_alkane = [
     ["2-Chloro-1-fluoropropane","C(F)C(Cl)C"],
     ["1,1-Dibromo-3,3-diiodobutane","C(Br)(Br)CC(I)(I)C"],
     
-    # Currently only works in one direction
+    # Amine Tests
+    ["1-Aminomethane","C(N)"],
+    ["1,4-Diaminobutane","C(N)CCC(N)"],
+    
+    # Advanced Alkanol Tests
     ["Hexan-1,2-diol","C(O)C(O)CCCC"],
     ["Methan-1,1,1,1-tetraol","C(O)(O)(O)(O)"],
     ]

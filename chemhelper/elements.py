@@ -29,6 +29,8 @@ class Atom(object):
     symbol = "-"
     max_bindings = 0
     isotope = None # Only specify if needed
+    erase_hydrogen = False # Useful for some Elements
+    
     def __init__(self,structure,pos=None,name=""):
         self.structure = structure
         
@@ -91,7 +93,14 @@ class Atom(object):
             raise errors.NotBoundError("Cannot get bond data of non-bound atom")
         return self.bonddata[other],other.bonddata[self]
     
-    def erase(self):
+    def erase(self,erase_hydrogen=None):
+        if erase_hydrogen is None:
+            erase_hydrogen = self.erase_hydrogen
+        if erase_hydrogen:
+            for other in list(self.bindings.keys()):
+                if other.symbol=="H":
+                    other.erase()
+        
         for other in list(self.bindings.keys()):
             self.unbindFromAtom(other)
         
@@ -125,13 +134,7 @@ class Carbon(Atom):
     atomtype = "Carbon"
     symbol = "C"
     max_bindings = 4
-    
-    def erase(self,eraseHydrogen=True):
-        if eraseHydrogen:
-            for other in list(self.bindings.keys()):
-                if other.symbol=="H":
-                    other.erase()
-        super(Carbon,self).erase()
+    erase_hydrogen = True
 
 class Hydrogen(Atom):
     #def fillWithHydrogen(self):
@@ -144,19 +147,14 @@ class Oxygen(Atom):
     atomtype = "Oxygen"
     symbol = "O"
     max_bindings = 2
-    
-    def erase(self,eraseHydrogen=True):
-        if eraseHydrogen:
-            for other in list(self.bindings.keys()):
-                if other.symbol=="H":
-                    other.erase()
-        super(Oxygen,self).erase()
+    erase_hydrogen = True
     # TODO: implement special render with "shields" for oxygen only
 
 class Nitrogen(Atom):
     atomtype = "Nitrogen"
     symbol = "N"
     max_bindings = 3
+    erase_hydrogen = True
 
 class Sulfur(Atom):
     atomtype = "Sulfur"

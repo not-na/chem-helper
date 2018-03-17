@@ -100,6 +100,18 @@ BASE_PREFIXES_1000 = {
 class IUPACNotation(BaseNotation):
     def __init__(self,name=""):
         self.name = name
+        
+        self.fgroups = {}
+        
+        self.init_fgroups()
+    def init_fgroups(self):
+        self.fgroups["alkyl"]=self.fg_alkyl
+        self.fgroups["hydroxyl"]=self.fg_hydroxyl
+        self.fgroups["amino"]=self.fg_amino
+        self.fgroups["fluoro"]=self.fg_fluoro
+        self.fgroups["chloro"]=self.fg_chloro
+        self.fgroups["bromo"]=self.fg_bromo
+        self.fgroups["iodo"]=self.fg_iodo
     
     # Conversion Methods
     def asIUPACName(self):
@@ -299,6 +311,7 @@ class IUPACNotation(BaseNotation):
         # 2.5a: Multiplying prefixes in front of identical groups
         # 102.1: Halogen Derivate naming using prefixes
         # 201.1: Alcohols using -ol suffix
+        # 811.3: Amines using amino- if not the principal group
         
         # Rules that are partially being followed:
         # 1.2: Alkyl groups naming, only supported as functional group and not standalone
@@ -321,6 +334,10 @@ class IUPACNotation(BaseNotation):
         # 201.2: Alcohols using hydroxy- prefix
         # 201.3: Alcohols using Radicofunctional names like "Methyl alcohol"
         # 201.4: Alcohol trivial names
+        # 811.1: Amines as part of rings
+        # 811.2: Amines as generic names using nitrogen
+        # 811.4: Amine Radicals and trivial names
+        # 812.1: Monoamines using -amine and trivial names
         
         data = {}
         self.i2s_stage1(data)
@@ -423,10 +440,36 @@ class IUPACNotation(BaseNotation):
                 raise errors.UnsupportedFeatureError("Aldehydes are currently not supported")
             elif prefixname.endswith("oxo"):
                 raise errors.UnsupportedFeatureError("Ketones are currently not supported")
-            elif prefixname.endswith("amino"):
-                raise errors.UnsupportedFeatureError("Amines are currently not supported")
             elif prefixname.endswith("carboxy"):
                 raise errors.UnsupportedFeatureError("Carboxylic Acids are currently not supported")
+            elif prefixname.endswith("amino"):
+                # Amino group
+                # Based on rule C-811.3
+                multprefix = prefixname[:-5] # removes the amino from the end
+                multiplier = parseAlkylMultiplierPrefix(multprefix)
+                
+                # Checks if positions were given, if not then generate them
+                if positions is None:
+                    if multiplier>data["main_chain_length"]:
+                        raise errors.InvalidMultiplier("Multiplier %s of amino Group announces %s positions, but only %s available"%(
+                                multprefix,multiplier,data["main_chain_length"],
+                                ))
+                    raise errors.UnsupportedFeatureError("Auto-placement of Amino-Groups is currently not supported")
+                
+                # Validates the multiplier
+                if multiplier!=len(positions):
+                    raise errors.InvalidMultiplier("Multiplier %s announces %s positions, but %s found in amino group %s"%(
+                            multprefix,multiplier,len(positions),",".join([str(i) for i in positions])+"-"+prefixname,
+                            ))
+                
+                # Go through every functional group specified by this suffix
+                for position in positions:
+                    # Store the result
+                    fg = {
+                        "type":"amino",
+                        "base":position,
+                    }
+                    data["fgroups"].append(fg)
             elif prefixname.endswith("fluoro"):
                 # Fluorine Group
                 multprefix = prefixname[:-6] # removes the fluoro from the end
@@ -645,18 +688,10 @@ class IUPACNotation(BaseNotation):
         # Iterate through all functional groups and call the appropriate constructor
         # The constructors do not return anything, but they will modify the fg dict and add the bondinfo key
         for fg in data["fgroups"]:
-            if fg["type"]=="alkyl":
-                self.fg_alkyl(fg,data)
-            elif fg["type"]=="hydroxyl":
-                self.fg_hydroxyl(fg,data)
-            elif fg["type"]=="fluoro":
-                self.fg_fluoro(fg,data)
-            elif fg["type"]=="chloro":
-                self.fg_chloro(fg,data)
-            elif fg["type"]=="bromo":
-                self.fg_bromo(fg,data)
-            elif fg["type"]=="iodo":
-                self.fg_iodo(fg,data)
+            if fg["type"] in self.fgroups:
+                f = self.fgroups[fg["type"]]
+                # TODO: add exception catching to functional group creation
+                f(fg,data)
             else:
                 raise errors.UnsupportedGroupError("Functional groups of type '%s' cannot be converted to structures yet"%fg["type"])
     def i2s_stage4(self,data):
@@ -720,6 +755,27 @@ class IUPACNotation(BaseNotation):
         conn = o
         n = 1
         bdata = {"reason":"Hydroxyl Group generated from IUPAC Name"}
+        cdata = bdata
+        fg["bondinfo"] = base,conn,n,bdata,cdata
+    def fg_amino(self,fg,data):
+        # Creates an amino group, but does not yet connect it with the main chain
+        
+        # Create Nitrogen
+        n = data["struct"].addNitrogen(name="N@%s"%fg["base"])
+        
+        # Create Hydrogen 1
+        h1 = data["struct"].addHydrogen(name="H1@%s"%fg["base"])
+        n.bindToAtom(h1,sdata={"reason":"Amino Group generated from IUPAC Name"})
+        
+        # Create Hydrogen 2
+        h2 = data["struct"].addHydrogen(name="H2@%s"%fg["base"])
+        n.bindToAtom(h2,sdata={"reason":"Amino Group generated from IUPAC Name"})
+        
+        # Create bondinfo
+        base = fg["base"]
+        conn = n
+        n = 1
+        bdata = {"reason":"Amino Group generated from IUPAC Name"}
         cdata = bdata
         fg["bondinfo"] = base,conn,n,bdata,cdata
     def fg_fluoro(self,fg,data):

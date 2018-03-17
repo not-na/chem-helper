@@ -141,9 +141,7 @@ class StructuralNotation(BaseNotation):
                     return "2"
                 else:
                     return element[0]
-            print("Unsorted: ",elements)
             elements = sorted(elements,key=f)
-            print("Sorted: ",elements)
             
             sum_formula = ""
             for element,n in elements:
@@ -374,6 +372,7 @@ class StructuralNotation(BaseNotation):
         # 2.5a: Multiplying prefixes in front of identical groups
         # 102.1: Halogen Derivate naming using prefixes
         # 201.1: Alcohols using -ol suffix
+        # 811.3: Amines using amino- if not the principal group
         
         # Rules that are partially being followed:
         # 1.2: Alkyl groups naming, only supported as functional group and not standalone
@@ -396,6 +395,10 @@ class StructuralNotation(BaseNotation):
         # 201.2: Alcohols using hydroxy- prefix
         # 201.3: Alcohols using Radicofunctional names like "Methyl alcohol"
         # 201.4: Alcohol trivial names
+        # 811.1: Amines as part of rings
+        # 811.2: Amines as generic names using nitrogen
+        # 811.4: Amine Radicals and trivial names
+        # 812.1: Monoamines using -amine and trivial names
         
         data = {}
         self.s2i_stage1(data)
@@ -486,6 +489,24 @@ class StructuralNotation(BaseNotation):
                     else:
                         # Not chemically possible
                         raise errors.InvalidFormulaError("Triple bindings are not possible for oxygen atoms")
+                elif neighbour.symbol=="N":
+                    # Found a nitrogen side-branch
+                    # Check if it is an Amino Group by checking the binding to the base atom and child atoms
+                    if c.bindings[neighbour] == 1:
+                        # Probably amino
+                        h = 0
+                        for n2 in neighbour.bindings:
+                            if n2.symbol=="H":
+                                h+=1
+                        if h==2:
+                            grouptype = "amino"
+                            extradata = {"c":c,"n":n}
+                            groups.append([n,grouptype,extradata])
+                        else:
+                            # Probably one of the other dozens of nitrogen-based functional groups
+                            raise errors.UnsupportedGroupError("Non-Amino Nitrogen-based functional groups are currently not supported")
+                    else:
+                        raise errors.UnsupportedGroupError("Nitrogen Atoms using double bonds are currently not supported")
                 elif neighbour.symbol=="F":
                     # Found a Fluoro group
                     # No further checking required, since Fluorine only takes one binding
@@ -563,6 +584,9 @@ class StructuralNotation(BaseNotation):
             if name=="hydroxyl":
                 # Currently always as a suffix
                 data["s_groups"][name]=groups
+            elif name=="amino":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
             elif name=="fluoro":
                 # Currently always as a prefix
                 data["p_groups"][name]=groups
@@ -596,7 +620,7 @@ class StructuralNotation(BaseNotation):
                 num = ",".join([str(i[0]) for i in sorted(groups,key=lambda g:g[0])])
                 prefix = num+"-"+base
                 prefixes.append([prefix,base])
-            elif name in ["hydroxyl","fluoro","chloro","bromo","iodo"]:
+            elif name in ["hydroxyl","amino","fluoro","chloro","bromo","iodo"]:
                 # Currently, all hydroxyl groups are added as suffixes
                 # This causes this to not actually be used for hydroxyl groups
                 if name=="hydroxyl":
@@ -752,6 +776,12 @@ class StructuralNotation(BaseNotation):
                     if n not in groups:
                         groups[n]=[]
                     groups[n].append(group)
+                elif neighbour.symbol in ["N"]:
+                    # Nitrogen derivative, only amines supported
+                    group = [n,"amino",None]
+                    if n not in groups:
+                        groups[n]=[]
+                    groups[n].append(group)
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         
@@ -843,6 +873,9 @@ class StructuralNotation(BaseNotation):
                     elif gtype == "halogen":
                         # Add parentheses containing the halogen group
                         out += "(%s)"%gdata
+                    elif gtype == "amino":
+                        # Add parentheses containing the amino group
+                        out += "(N)"
                     else:
                         raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
         
