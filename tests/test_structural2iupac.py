@@ -28,6 +28,8 @@ import chemhelper
 
 from conftest import basic_alkane
 
+ELEMENT_STR = "{element}[{count}]"
+
 test_cases_i2s_branched_alkane = [
     # Some basic tests
     ["4-Ethylheptane",              7,  9,  20],
@@ -48,6 +50,35 @@ test_cases_i2s_branched_alkane = [
     # Checks if pentakisdecyl is parsed correctly
     ["12,13,14,15,16-Pentakisdecylhectane", 100, 150, 302],
     
+    ]
+
+test_cases_autocorrect = [
+    # Tests autocorrection
+    
+    # Basic case correction
+    ["ethane","Ethane",                         "C[2]H[6]"],
+    ["METHANOL","Methanol",                     "CH[4]O"],
+    ["3,4-dImEThylheXANoL","3,4-Dimethylhexanol","C[8]H[18]O"],
+    
+    # Autofill of Group positions
+    ["Aminomethane","1-Aminomethane",           "CH[5]N"],
+    ["Tetraaminomethane","1,1,1,1-Tetraaminomethane","CH[8]N[4]"],
+    ["Pentaiodoethane","1,1,1,2,2-Pentaiodoethane","C[2]HI[5]"],
+    ["Tetrafluorobutane","1,2,3,4-Tetrafluorobutane","C[4]H[6]F[4]"],
+    
+    # Autofill of mixed Group positions
+    ["2-Amino-fluorobutane","2-Amino-1-fluorobutane","C[4]H[10]FN"],
+    
+    # Ordering of Groups
+    ["6-Butyl-20-aminohectane","20-Amino-6-butylhectane","C[104]H[211]N"],
+    
+    # Correction of main chain with implausible side chains
+    ["1-Methylmethane","Ethane",                  "C[2]H[6]"],
+    ["1,1,1,1-Tetramethylmethane","2,2-Dimethylpropane","C[5]H[12]"],
+    ["2-Ethyloctane","3-Methylnonane",          "C[10]H[22]"],
+    
+    # Simplification of unneccessary locants
+    ["Ethan-1-ol","Ethanol",                    "C[2]H[8]O"],
     ]
 
 def test_s2i_branched_alkane_1():
@@ -153,44 +184,19 @@ def test_i2s_branched_alkane(name,chainlen,exp_c,exp_h):
     
     assert struct.asIUPACName()==iupacname
 
-def main(args):
-    # C-C-C-C-C-C-C
-    #     |
-    #     C-C-C-C
-    #
-    # This example demonstrates that simply recursively searching from one end will not work
-    # Numbering:
-    # 1-2-3-4-5-6-7
-    #     |
-    #     8-9-10
-    # Right chain is 7-6-5-4-3-8-9-10
-    # Should be 4-ethyloctane
+@pytest.mark.parametrize(("orig","exp","sum_formula"), test_cases_autocorrect)
+def test_autocorrect(orig,exp,sum_formula):
+    orig_i = chemhelper.notations.iupac.IUPACNotation(orig)
+    exp_i = chemhelper.notations.iupac.IUPACNotation(exp)
     
-    struct = chemhelper.notations.structural.StructuralNotation()
+    orig_s = orig_i.asStructuralFormula()
+    assert orig_s.asIUPACName()==exp_i
     
-    carbons = []
-    for i in range(1,11):
-        carbons.append(struct.addCarbon(name="C%s"%i))
+    orig_sum = orig_s.getSumFormula(ELEMENT_STR)
+    assert orig_sum == sum_formula
     
-    c1,c2,c3,c4,c5,c6,c7,c8,c9,c10 = carbons
+    exp_s = exp_i.asStructuralFormula()
+    assert exp_s.asIUPACName()==exp_i
     
-    c1.bindToAtom(c2)
-    c2.bindToAtom(c3)
-    c3.bindToAtom(c4)
-    c4.bindToAtom(c5)
-    c5.bindToAtom(c6)
-    c6.bindToAtom(c7)
-    c3.bindToAtom(c8)
-    c8.bindToAtom(c9)
-    c9.bindToAtom(c10)
-    
-    struct.fillWithHydrogen()
-    
-    print("IUPAC Name:")
-    print(struct.asIUPACName().name)
-    
-    return 0
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main(sys.argv))
+    exp_sum = exp_s.getSumFormula(ELEMENT_STR)
+    assert exp_sum == sum_formula

@@ -68,6 +68,10 @@ test_cases_i2s_branched_alkane = [
     ["1-Aminomethane","C(N)"],
     ["1,4-Diaminobutane","C(N)CCC(N)"],
     
+    # Hydroxyamino Tests
+    ["1-Hydroxyaminomethane","C(NO)"],
+    ["1,4-Dihydroxyaminobutane","C(NO)CCC(NO)"],
+    
     # Advanced Alkanol Tests
     ["Hexan-1,2-diol","C(O)C(O)CCCC"],
     ["Methan-1,1,1,1-tetraol","C(O)(O)(O)(O)"],
@@ -105,10 +109,3 @@ def test_s2i_doubleletterelements():
     # Probably not a valid structure, but good for a testcase
     struct = chemhelper.notations.structural.StructuralNotation.loadsFromSMILES("CC(Br)C(Cl)C")
     assert struct.countAtoms()=={"C":4,"H":8,"Br":1,"Cl":1}
-
-def main(args):
-    return 0
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main(sys.argv))

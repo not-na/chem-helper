@@ -114,7 +114,7 @@ def test_reverse_alkane_name2n_prefixed(n,name):
 def test_reverse_general_name2n_prefixed(n,name):
     assert n==chemhelper.notations.iupac.parseNumericalPrefix("abcdef"+name,True)[0]
 
-
+# TODO: clean this up and make it an external tool
 def main(args):
     global SUFFIX
     

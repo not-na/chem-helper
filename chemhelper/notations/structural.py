@@ -493,18 +493,37 @@ class StructuralNotation(BaseNotation):
                     # Found a nitrogen side-branch
                     # Check if it is an Amino Group by checking the binding to the base atom and child atoms
                     if c.bindings[neighbour] == 1:
-                        # Probably amino
+                        # Probably amino or hydroxyamino
                         h = 0
+                        o = 0
+                        o_atom = None
                         for n2 in neighbour.bindings:
                             if n2.symbol=="H":
                                 h+=1
+                            elif n2.symbol=="O":
+                                o+=1
+                                o_atom = n2
                         if h==2:
+                            # Amino Group
                             grouptype = "amino"
                             extradata = {"c":c,"n":n}
                             groups.append([n,grouptype,extradata])
+                        elif h==1 and o==1:
+                            # Probably hydroxyamino, just check the oxygen
+                            h = 0
+                            for n2 in o_atom.bindings:
+                                if n2.symbol=="H":
+                                    h+=1
+                            if h==1:
+                                # Hydroxyamino group
+                                grouptype = "hydroxyamino"
+                                extradata = {"c":c,"n":n}
+                                groups.append([n,grouptype,extradata])
+                            else:
+                                raise errors.UnsupportedGroupError("Only Amino and Hydroxyamino Nitrogen-based groups are supported")
                         else:
                             # Probably one of the other dozens of nitrogen-based functional groups
-                            raise errors.UnsupportedGroupError("Non-Amino Nitrogen-based functional groups are currently not supported")
+                            raise errors.UnsupportedGroupError("Only Amino and Hydroxyamino Nitrogen-based groups are supported")
                     else:
                         raise errors.UnsupportedGroupError("Nitrogen Atoms using double bonds are currently not supported")
                 elif neighbour.symbol=="F":
@@ -587,6 +606,9 @@ class StructuralNotation(BaseNotation):
             elif name=="amino":
                 # Currently always as a prefix
                 data["p_groups"][name]=groups
+            elif name=="hydroxyamino":
+                # Currently always as a prefix
+                data["p_groups"][name]=groups
             elif name=="fluoro":
                 # Currently always as a prefix
                 data["p_groups"][name]=groups
@@ -620,7 +642,7 @@ class StructuralNotation(BaseNotation):
                 num = ",".join([str(i[0]) for i in sorted(groups,key=lambda g:g[0])])
                 prefix = num+"-"+base
                 prefixes.append([prefix,base])
-            elif name in ["hydroxyl","amino","fluoro","chloro","bromo","iodo"]:
+            elif name in ["hydroxyl","amino","hydroxyamino","fluoro","chloro","bromo","iodo"]:
                 # Currently, all hydroxyl groups are added as suffixes
                 # This causes this to not actually be used for hydroxyl groups
                 if name=="hydroxyl":
@@ -776,12 +798,45 @@ class StructuralNotation(BaseNotation):
                     if n not in groups:
                         groups[n]=[]
                     groups[n].append(group)
-                elif neighbour.symbol in ["N"]:
-                    # Nitrogen derivative, only amines supported
-                    group = [n,"amino",None]
-                    if n not in groups:
-                        groups[n]=[]
-                    groups[n].append(group)
+                elif neighbour.symbol=="N":
+                    # Nitrogen derivative, only amines and hydroxyamines supported
+                    # Check if it is an Amino Group by checking the binding to the base atom and child atoms
+                    if c.bindings[neighbour] == 1:
+                        # Probably amino or hydroxyamino
+                        h = 0
+                        o = 0
+                        o_atom = None
+                        for n2 in neighbour.bindings:
+                            if n2.symbol=="H":
+                                h+=1
+                            elif n2.symbol=="O":
+                                o+=1
+                                o_atom = n2
+                        if h==2:
+                            # Amino Group
+                            group = [n,"amino",None]
+                            if n not in groups:
+                                groups[n]=[]
+                            groups[n].append(group)
+                        elif h==1 and o==1:
+                            # Probably hydroxyamino, just check the oxygen
+                            h = 0
+                            for n2 in o_atom.bindings:
+                                if n2.symbol=="H":
+                                    h+=1
+                            if h==1:
+                                # Hydroxyamino group
+                                group = [n,"hydroxyamino",None]
+                                if n not in groups:
+                                    groups[n]=[]
+                                groups[n].append(group)
+                            else:
+                                raise errors.UnsupportedGroupError("Only Amino and Hydroxyamino Nitrogen-based groups are supported")
+                        else:
+                            # Probably one of the other dozens of nitrogen-based functional groups
+                            raise errors.UnsupportedGroupError("Only Amino and Hydroxyamino Nitrogen-based groups are supported")
+                    else:
+                        raise errors.UnsupportedGroupError("Nitrogen Atoms using double bonds are currently not supported")
                 else:
                     raise errors.UnsupportedElementError("Element '%s' is not currently supported"%neighbour.symbol)
         
@@ -876,6 +931,9 @@ class StructuralNotation(BaseNotation):
                     elif gtype == "amino":
                         # Add parentheses containing the amino group
                         out += "(N)"
+                    elif gtype == "hydroxyamino":
+                        # Add parentheses containing the hydroxyamino group
+                        out += "(NO)"
                     else:
                         raise errors.InvalidGroupError("Unknown group type '%s'"%gtype)
         

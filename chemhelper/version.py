@@ -26,6 +26,6 @@
 __all__ = ["VERSION","RELEASE"]
 
 # Currently, VERSION and RELEASE are identical
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
-RELEASE = "1.1.0"
+RELEASE = "1.2.0"
