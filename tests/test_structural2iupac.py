@@ -78,7 +78,7 @@ test_cases_autocorrect = [
     ["2-Ethyloctane","3-Methylnonane",          "C[10]H[22]"],
     
     # Simplification of unneccessary locants
-    ["Ethan-1-ol","Ethanol",                    "C[2]H[8]O"],
+    ["Ethan-1-ol","Ethanol",                    "C[2]H[6]O"],
     ]
 
 def test_s2i_branched_alkane_1():
